@@ -1,0 +1,266 @@
+/**
+ * Main App component - Root of the Trading Journal application.
+ */
+import { useState, Component, ReactNode } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePersistedState } from '@/hooks/usePersistedState';
+import { Sidebar } from '@/components/Dashboard/Sidebar';
+import { Dashboard } from '@/components/Dashboard/Dashboard';
+import { TradesTable } from '@/components/Dashboard/TradesTable';
+import { StrategyStats } from '@/components/Dashboard/StrategyStats';
+import { Settings } from '@/components/Dashboard/Settings';
+import { AssetsPage } from '@/components/Dashboard/AssetsPage';
+import { StrikeCalculator } from '@/components/Dashboard/StrikeCalculator';
+import { useTheme } from '@/hooks/useTheme';
+import { settingsApi, syncApi, tradesApi, getActiveAccountId } from '@/lib/api';
+import { Portfolio } from '@/components/Portfolio/Portfolio';
+import { Onboarding } from '@/components/Dashboard/Onboarding';
+import {
+    ToastProvider,
+    ToastViewport,
+    Toast,
+    ToastTitle,
+    ToastDescription,
+} from '@/components/ui/Toast';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
+import { cn } from '@/lib/utils';
+
+// Simple Error Boundary to catch component crashes
+interface ErrorBoundaryProps {
+    children: ReactNode;
+    fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+    hasError: boolean;
+    error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+    constructor(props: ErrorBoundaryProps) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { hasError: true, error };
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return this.props.fallback || (
+                <div className="p-6 text-center">
+                    <h2 className="text-xl font-bold text-destructive mb-2">Something went wrong</h2>
+                    <p className="text-muted-foreground text-sm mb-4">
+                        {this.state.error?.message || 'Unknown error'}
+                    </p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
+                    >
+                        Reload App
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+type View = 'dashboard' | 'trades' | 'strategies' | 'settings' | 'assets' | 'strike-calculator' | 'portfolio';
+
+interface ToastState {
+    open: boolean;
+    title: string;
+    description: string;
+    variant: 'default' | 'success' | 'destructive';
+}
+
+function App() {
+    const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState('tj_sidebarCollapsed', false);
+    const [currentView, setCurrentView] = usePersistedState<View>('tj_currentView', 'dashboard');
+    // Track the active account ID so the component tree re-renders on account switch
+    const [_activeAccountId, setActiveAccountId] = useState(() => getActiveAccountId());
+    const [toast, setToast] = useState<ToastState>({
+        open: false,
+        title: '',
+        description: '',
+        variant: 'default',
+    });
+
+    const { theme, setTheme } = useTheme();
+    const queryClient = useQueryClient();
+
+    // --- Onboarding logic ---
+    // "Lock" pattern: once onboarding becomes visible, it stays visible
+    // until the user explicitly completes or skips it. This prevents the
+    // wizard from disappearing mid-flow when saving credentials changes
+    // has_credentials to true.
+    const [onboardingDismissed, setOnboardingDismissed] = useState(
+        () => localStorage.getItem('tj_onboardingComplete') === 'true'
+    );
+    const [onboardingLocked, setOnboardingLocked] = useState(false);
+
+    const { data: settingsData, isLoading: settingsLoading } = useQuery({
+        queryKey: ['settings', 'onboarding-check'],
+        queryFn: settingsApi.get,
+        enabled: !onboardingDismissed && !onboardingLocked,
+        staleTime: Infinity,
+    });
+
+    const { data: tradesData, isLoading: tradesLoading } = useQuery({
+        queryKey: ['trades', 'onboarding-check'],
+        queryFn: () => tradesApi.getAll({ page: 1, page_size: 1 }),
+        enabled: !onboardingDismissed && !onboardingLocked,
+        staleTime: Infinity,
+    });
+
+    // Once we determine the user needs onboarding, lock it visible
+    const shouldShowOnboarding =
+        !onboardingDismissed &&
+        !settingsLoading &&
+        !tradesLoading &&
+        settingsData &&
+        !settingsData.has_credentials &&
+        (tradesData?.total ?? 0) === 0;
+
+    if (shouldShowOnboarding && !onboardingLocked) {
+        setOnboardingLocked(true);
+    }
+
+    const showOnboarding = onboardingLocked;
+
+    // Sync mutation - uses stored credentials from Settings
+    const syncMutation = useMutation({
+        mutationFn: () => syncApi.sync(),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries();
+            if (data.success) {
+                showToast('Sync Complete', data.message, 'success');
+            } else {
+                showToast('Sync Failed', data.message, 'destructive');
+            }
+        },
+        onError: (error: Error) => {
+            // If no credentials, suggest going to settings
+            if (error.message.includes('No IBKR credentials')) {
+                showToast('Setup Required', 'Please configure IBKR credentials in Settings', 'destructive');
+            } else {
+                showToast('Sync Error', error.message, 'destructive');
+            }
+        },
+    });
+
+
+
+    const showToast = (
+        title: string,
+        description: string,
+        variant: 'default' | 'success' | 'destructive' = 'default'
+    ) => {
+        setToast({ open: true, title, description, variant });
+        setTimeout(() => setToast((t) => ({ ...t, open: false })), 4000);
+    };
+
+    const handleSync = () => {
+        // Try real sync first (uses stored credentials)
+        syncMutation.mutate();
+    };
+
+    return (
+        <ToastProvider>
+            {/* Onboarding wizard for first-time users */}
+            {showOnboarding && (
+                <Onboarding
+                    onComplete={() => {
+                        setOnboardingLocked(false);
+                        setOnboardingDismissed(true);
+                        queryClient.invalidateQueries();
+                    }}
+                />
+            )}
+            <div className="min-h-screen bg-background">
+                {/* Backend connection banner */}
+                <ConnectionStatus />
+                <Sidebar
+                    collapsed={sidebarCollapsed}
+                    onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    currentView={currentView}
+                    onViewChange={setCurrentView}
+                    onAccountSwitch={(newId) => setActiveAccountId(newId)}
+                />
+
+                {/* Main Content */}
+                <main
+                    className={cn(
+                        'flex-1 transition-all duration-300',
+                        sidebarCollapsed ? 'ml-16' : 'ml-64'
+                    )}
+                >
+                    {currentView === 'dashboard' && <Dashboard onSync={handleSync} isSyncing={syncMutation.isPending} />}
+                    {currentView === 'portfolio' && <Portfolio />}
+                    {currentView === 'trades' && (
+                        <div className="p-6 animate-fade-in">
+                            <div className="mb-6">
+                                <h1 className="text-2xl font-bold">Trade History</h1>
+                            </div>
+                            <TradesTable />
+                        </div>
+                    )}
+                    {currentView === 'strategies' && (
+                        <div className="p-6 animate-fade-in">
+                            <div className="mb-6">
+                                <h1 className="text-2xl font-bold">Strategy Performance</h1>
+                            </div>
+                            <StrategyStats />
+                        </div>
+                    )}
+                    {currentView === 'settings' && (
+                        <div className="p-6 animate-fade-in">
+                            <div className="mb-6">
+                                <h1 className="text-2xl font-bold">Settings</h1>
+                                <p className="text-sm text-muted-foreground">
+                                    Configure IBKR integration, account preferences, and appearance
+                                </p>
+                            </div>
+                            <Settings
+                                currentTheme={theme}
+                                onThemeChange={setTheme}
+                                onAccountSwitch={(newId) => {
+                                    // React Query cache is already cleared by AccountManager.
+                                    // Update local state so useQuery keys re-fire with new account.
+                                    setActiveAccountId(newId);
+                                }}
+                            />
+                        </div>
+                    )}
+                    {currentView === 'assets' && (
+                        <ErrorBoundary>
+                            <AssetsPage />
+                        </ErrorBoundary>
+                    )}
+                    {/* StrikeCalculator: always mounted to preserve state; hidden via CSS when inactive */}
+                    <div className={currentView === 'strike-calculator' ? 'p-6 animate-fade-in' : 'hidden'}>
+                        <div className="mb-6">
+                            <h1 className="text-2xl font-bold">Strike Calculator</h1>
+                        </div>
+                        <StrikeCalculator isActive={currentView === 'strike-calculator'} />
+                    </div>
+                </main>
+
+                {/* Toast Notifications */}
+                <Toast
+                    open={toast.open}
+                    onOpenChange={(open: boolean) => setToast((t) => ({ ...t, open }))}
+                    variant={toast.variant}
+                >
+                    <ToastTitle>{toast.title}</ToastTitle>
+                    <ToastDescription>{toast.description}</ToastDescription>
+                </Toast>
+                <ToastViewport />
+            </div>
+        </ToastProvider>
+    );
+}
+
+export default App;

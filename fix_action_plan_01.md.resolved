@@ -1,0 +1,422 @@
+
+
+## 🔴 CRÍTICO
+
+### #1 — Eliminar Debug Prints de [sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py)
+
+**Archivos:** [backend/routers/sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py)
+
+**Acción:**
+1. Buscar todas las líneas que contengan `print(` en el archivo
+2. Para cada `print()`:
+   - Si es información útil para diagnóstico → reemplazar con `logger.debug()`
+   - Si es redundante o solo dice "DEBUG" → eliminar la línea
+3. Asegurarse de que `logger = logging.getLogger(__name__)` ya existe (sí existe en línea 21)
+4. Eliminar también los bloques de comentarios `# ====== DEBUG LOGGING ======`
+
+**Verificación:** `grep -n "print(" backend/routers/sync.py` debe devolver 0 resultados.
+
+---
+
+### #2 — Hacer API_BASE Relativo en Frontend
+
+**Archivos:** [frontend/src/lib/api.ts](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/lib/api.ts)
+
+**Acción:**
+1. Cambiar línea 21:
+```diff
+-const API_BASE = 'http://127.0.0.1:8000/api';
++const API_BASE = '/api';
+```
+2. Verificar que `vite.config.ts` tenga configurado el proxy para desarrollo:
+```typescript
+server: {
+  proxy: {
+    '/api': 'http://127.0.0.1:8000'
+  }
+}
+```
+Si no existe el proxy, agregarlo.
+
+**Verificación:** Ejecutar `npm run dev`, navegar a la app, y confirmar que las llamadas a `/api/...` funcionan correctamente. Verificar también que `npm run build` genera un bundle funcional.
+
+---
+
+### #3 — Proteger Endpoint Demo-Data
+
+**Archivos:** [backend/routers/sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py), [frontend/src/lib/api.ts](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/lib/api.ts), [frontend/src/App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx)
+
+**Acción:**
+1. En [sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py), agregar una variable de entorno para controlar el acceso:
+```python
+import os
+IS_DEV = os.getenv("TRADING_JOURNAL_DEV", "false").lower() == "true"
+```
+2. En el endpoint [create_demo_data](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py#520-610), agregar al inicio:
+```python
+if not IS_DEV:
+    raise HTTPException(status_code=403, detail="Demo data is only available in development mode")
+```
+3. En [frontend/src/App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx), eliminar cualquier botón o referencia a `demoMutation` y `syncApi.createDemoData` en la UI (mantener solo en Settings si tiene un modo dev).
+4. En [api.ts](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/lib/api.ts), mantener [createDemoData](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/lib/api.ts#171-176) pero documentar que solo funciona en modo dev.
+
+**Verificación:** Intentar `POST /api/sync/demo-data` sin la variable de entorno → debe devolver 403.
+
+---
+
+### #4 — Cifrar Credenciales IBKR
+
+**Archivos:** [backend/models.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/models.py), [backend/routers/settings.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/settings.py), nuevo archivo `backend/crypto.py`
+
+**Acción:**
+1. Crear `backend/crypto.py` con funciones `encrypt(plaintext)` y `decrypt(ciphertext)`:
+   - Usar `cryptography.fernet` con una clave derivada de un identificador único de la máquina (hostname + username hash)
+   - La clave se genera una vez y se almacena en el directorio de datos de la app (`~/.tradingjournal/key`)
+2. En [settings.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/settings.py) (router), al guardar settings:
+   - Cifrar `flex_token` antes de escribir a DB
+   - Descifrar al leer de DB
+3. Agregar `cryptography` a [requirements.txt](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/requirements.txt)
+4. Agregar migración en [init_db()](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py#68-97) para re-cifrar tokens existentes en texto plano
+
+**Verificación:** Abrir [trading_journal.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db) con un visor SQLite → el campo `flex_token` debe mostrar texto cifrado, no el token real.
+
+---
+
+## 🟡 IMPORTANTE
+
+### #5 — Sistema de Backup/Restauración
+
+**Archivos:** Nuevo `backend/routers/backup.py`, nuevo componente frontend `BackupSettings.tsx`, modificar [Settings.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Settings.tsx)
+
+**Acción:**
+1. Crear router `backup.py` con 3 endpoints:
+   - `GET /api/backup/export-db` → devuelve el archivo [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db) como descarga
+   - `POST /api/backup/import-db` → recibe un archivo [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db), valida integridad, reemplaza
+   - `GET /api/backup/export-csv` → exporta trades como CSV
+2. Crear componente `BackupSettings.tsx` con botones:
+   - "Export Database" → descarga [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db)
+   - "Export Trades CSV" → descarga `.csv`
+   - "Import Database" → file picker + confirmación
+3. Integrar `BackupSettings` como sección dentro de [Settings.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Settings.tsx)
+
+**Verificación:** Exportar DB → eliminar un trade → importar DB → el trade debe reaparecer.
+
+---
+
+### #6 — Mejora del Sistema de Migraciones
+
+**Archivos:** [backend/database.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py), nuevo `backend/migrations.py`
+
+**Acción:**
+1. Crear `backend/migrations.py` con un registro de migraciones versionado:
+```python
+SCHEMA_VERSION = 3
+MIGRATIONS = [
+    (1, "ALTER TABLE settings ADD COLUMN ibkr_socket_port INTEGER DEFAULT 7497"),
+    (2, "ALTER TABLE asset_board_items ADD COLUMN date DATE DEFAULT CURRENT_DATE"),
+    # etc.
+]
+```
+2. Crear tabla `schema_version` con una sola fila que almacene la versión actual
+3. En [init_db()](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py#68-97), ejecutar solo las migraciones con versión mayor a la actual
+4. Mover las migraciones actuales de [database.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py) al nuevo sistema
+
+**Verificación:** Ejecutar la app, verificar que `schema_version` se crea y se actualiza correctamente. Re-ejecutar → no debe intentar migraciones ya aplicadas.
+
+---
+
+### #7 — Fijar Versiones de Dependencias
+
+**Archivos:** [backend/requirements.txt](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/requirements.txt)
+
+**Acción:**
+1. Ejecutar `pip freeze` en el venv actual del proyecto
+2. Reemplazar cada línea `>=` con la versión exacta instalada usando `==`:
+```diff
+-fastapi>=0.104.0
++fastapi==0.115.6
+```
+3. Hacer lo mismo para cada dependencia listada
+4. Opcionalmente agregar un `requirements-dev.txt` para herramientas de desarrollo
+
+**Verificación:** Crear un venv nuevo → `pip install -r requirements.txt` → ejecutar la app → debe funcionar idénticamente.
+
+---
+
+### #8 — Detección de DB Corrupta
+
+**Archivos:** [backend/database.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py)
+
+**Acción:**
+1. En [init_db()](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/database.py#68-97), antes de `create_all`, ejecutar:
+```python
+result = await conn.execute(text("PRAGMA integrity_check"))
+check = result.scalar()
+if check != "ok":
+    logger.error(f"Database integrity check failed: {check}")
+    # Mover DB corrupta a .db.corrupted y crear nueva
+```
+2. Si detecta corrupción:
+   - Renombrar el archivo corrupto con timestamp (`.db.corrupted.20260301`)
+   - Crear una DB nueva vacía
+   - Logear el evento
+3. Al inicio de la app (en [run_app.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/run_app.py)), mostrar un diálogo al usuario si se detectó corrupción
+
+**Verificación:** Modificar manualmente bytes del [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db) → ejecutar la app → debe detectar y reportar la corrupción.
+
+---
+
+### #9 — Puerto Dinámico
+
+**Archivos:** [run_app.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/run_app.py), [backend/main.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/main.py)
+
+**Acción:**
+1. En [run_app.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/run_app.py), crear función `find_available_port()`:
+```python
+import socket
+def find_available_port(start=8000, max_attempts=10):
+    for port in range(start, start + max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    raise RuntimeError("No available ports")
+```
+2. Usar el puerto encontrado en [start_backend()](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/run_app.py#105-112) y en `app_url`
+3. En el frontend empaquetado, dado que se sirve desde el mismo servidor, usar URL relativa (punto #2)
+
+**Verificación:** Ocupar el puerto 8000 con otro proceso → ejecutar la app → debe iniciar en 8001 automáticamente.
+
+---
+
+## 🟢 UX
+
+### #10 — Pantalla de Onboarding
+
+**Archivos:** Nuevo `frontend/src/components/Dashboard/Onboarding.tsx`, modificar [App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx)
+
+**Acción:**
+1. Crear componente `Onboarding` con 3 pasos tipo wizard:
+   - Paso 1: "Bienvenido a Trading Journal Pro" con overview
+   - Paso 2: "Configura tu cuenta IBKR" con campos de Flex Token y Query ID
+   - Paso 3: "¡Listo! Sincroniza tus datos" con botón de sync
+2. En [App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx), verificar si existe configuración guardada via `/api/settings`. Si `flex_token` es null/vacío y no hay trades, mostrar `<Onboarding />` en lugar del Dashboard
+3. Guardar en `localStorage` un flag `tj_onboardingComplete` para no mostrar de nuevo
+4. Incluir opción de "Skip" para usuarios que quieran explorar sin configurar
+
+**Verificación:** Limpiar localStorage y DB → abrir la app → debe mostrar onboarding. Completarlo → recargar → no debe reaparecer.
+
+---
+
+### #11 — Indicador de Última Sincronización
+
+**Archivos:** Modificar [frontend/src/components/Dashboard/Sidebar.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Sidebar.tsx), nuevo endpoint [backend/routers/sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py)
+
+**Acción:**
+1. En [sync.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py), agregar endpoint `GET /api/sync/last-sync`:
+   - Consultar el trade más reciente por `created_at` o agregar una tabla `sync_log` con timestamps
+   - Retornar `{ last_sync: "2026-03-01T12:00:00Z" }` o `{ last_sync: null }`
+2. En [Sidebar.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Sidebar.tsx), agregar al final (antes de "Collapse"):
+   - Texto pequeño: "Last sync: X min ago" usando la respuesta del endpoint
+   - Iconito de reloj (Clock de lucide-react)
+   - Actualizar cada 60 segundos con un `useEffect` + `setInterval`
+
+**Verificación:** Sincronizar → verificar que el timestamp se muestra. Esperar 2 minutos → debe decir "2 min ago".
+
+---
+
+### #12 — Modales Propios para Confirmaciones
+
+**Archivos:** Nuevo `frontend/src/components/ui/ConfirmDialog.tsx`, modificar [AssetsPage.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/AssetsPage.tsx), [TradesTable.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/TradesTable.tsx)
+
+**Acción:**
+1. Crear componente `ConfirmDialog` usando Radix `AlertDialog`:
+   - Props: `title`, `description`, `onConfirm`, `onCancel`, `variant` (default/destructive)
+   - Estilo consistente con el design system existente
+2. Buscar todas las llamadas a `confirm()` y `alert()` nativos en el proyecto:
+   - [AssetsPage.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/AssetsPage.tsx): [handleDelete](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/AssetsPage.tsx#627-643), [handleClear](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/AssetsPage.tsx#579-597), [handleSyncPositions](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/AssetsPage.tsx#636-653)
+   - [TradesTable.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/TradesTable.tsx): si existe algún `confirm()`
+3. Reemplazar cada `confirm()` con el nuevo `ConfirmDialog` controlado por estado
+
+**Verificación:** Intentar borrar un asset → debe mostrar modal estilizado, no el `confirm()` del browser.
+
+---
+
+### #13 — Banner de Desconexión del Backend
+
+**Archivos:** Nuevo `frontend/src/components/ui/ConnectionStatus.tsx`, modificar [App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx)
+
+**Acción:**
+1. Crear componente `ConnectionStatus`:
+   - Cada 10 segundos hace `GET /api/health`
+   - Si falla, muestra banner rojo fijo en la parte superior: "⚠ Connection lost. Retrying..."
+   - Cuando se reconecta, muestra verde breve "✓ Reconnected" y luego desaparece
+2. Montar `<ConnectionStatus />` en [App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx) dentro del layout principal
+3. Usar estado + `useEffect` + `setInterval`
+
+**Verificación:** Detener el backend → el banner debe aparecer. Reiniciar backend → debe mostrarse "Reconnected".
+
+---
+
+### #14 — Toggle de Tema Visible
+
+**Archivos:** Modificar [frontend/src/components/Dashboard/Sidebar.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Sidebar.tsx)
+
+**Acción:**
+1. Verificar si ya existe un toggle en Settings → si sí, agregar uno adicional en el Sidebar
+2. En [Sidebar.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/components/Dashboard/Sidebar.tsx), agregar un ícono de Sol/Luna al final, antes de "Collapse"
+   - Usar `Sun` y `Moon` de lucide-react
+   - Al hacer clic, alternar `useTheme().setTheme()`
+3. Solo mostrar el ícono (sin texto) para mantener el sidebar limpio
+4. Props: recibir `theme` y `onThemeChange` desde [App.tsx](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/src/App.tsx)
+
+**Verificación:** Clic en el ícono → el tema debe cambiar inmediatamente. Recargar → debe persistir.
+
+---
+
+## 📦 LIMPIEZA
+
+### #15 — Consolidar Archivos [.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/TradingJournalPro.spec)
+
+**Archivos:** Raíz del proyecto y carpeta `specs/`
+
+**Acción:**
+1. Revisar los 4 archivos [.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/TradingJournalPro.spec) y determinar cuál es el "oficial" para cada plataforma
+2. Mover los specs finales a `specs/`:
+   - [specs/windows.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/specs/windows.spec)
+   - [specs/macos.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/specs/macos.spec)
+3. Eliminar los specs obsoletos de la raíz:
+   - [TradingJournalPro.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/TradingJournalPro.spec)
+   - [TradingJournal_DEBUG.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/TradingJournal_DEBUG.spec)
+   - [Trading_Journal_01.spec](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/Trading_Journal_01.spec)
+4. Actualizar [build_app.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/build_app.py) para que apunte a `specs/`
+
+**Verificación:** Ejecutar `python build_app.py` → debe encontrar el spec correcto y completar el build.
+
+---
+
+### #16 — Mover Scripts de Desarrollo
+
+**Archivos:** Archivos en la raíz del proyecto
+
+**Acción:**
+1. Mover a `scripts/dev/`:
+   - [fix_db.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/fix_db.py)
+   - [check_api.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/check_api.py)
+   - [migrate_add_date_column.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/migrate_add_date_column.py)
+   - [migrate_add_notes.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/migrate_add_notes.py)
+   - [migrate_db.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/migrate_db.py)
+2. Mover a `scripts/verify/`:
+   - [backend/verify_dates.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/verify_dates.py)
+   - [backend/verify_specific.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/verify_specific.py)
+   - [backend/verify_trades.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/verify_trades.py)
+   - [backend/verify_output.txt](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/verify_output.txt)
+   - [backend/check_dates.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/check_dates.py)
+   - [backend/query_trades.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/query_trades.py)
+   - [backend/test_api.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/test_api.py)
+   - [backend/test_ibkr.py](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/test_ibkr.py)
+3. Eliminar archivos que ya no son necesarios (como [.DS_Store](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/.DS_Store))
+4. Verificar que ningún script movido sea importado por código de producción
+
+**Verificación:** Ejecutar la app → nada debe romperse por la reorganización.
+
+---
+
+### #17 — Limpiar `.gitignore` y DB del Repo
+
+**Archivos:** `.gitignore` (crear o modificar), archivos [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db)
+
+**Acción:**
+1. Crear/actualizar `.gitignore` con:
+```gitignore
+# Database
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Build artifacts
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+```
+2. Eliminar [trading_journal.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db) de la raíz
+3. Eliminar [backend/trading_journal.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/trading_journal.db) del repo (mantener local)
+4. Git: `git rm --cached trading_journal.db backend/trading_journal.db`
+
+**Verificación:** `git status` no debe mostrar archivos [.db](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/trading_journal.db) como tracked.
+
+---
+
+## 🧪 TESTING
+
+### #18 — Suite de Tests Automatizados
+
+**Archivos:** Nuevo `backend/tests/` directorio
+
+**Acción:**
+1. Crear estructura:
+```
+backend/tests/
+├── __init__.py
+├── conftest.py          # Fixtures compartidos (DB en memoria, client)
+├── test_trades.py       # CRUD de trades
+├── test_metrics.py      # Cálculos de métricas
+├── test_sync_parser.py  # Parseo de XML de IBKR
+├── test_assets.py       # Portfolio Boards
+└── test_settings.py     # Settings CRUD
+```
+2. En `conftest.py`:
+   - Crear fixture de DB SQLite en memoria
+   - Crear fixture de `TestClient` de FastAPI
+   - Crear fixtures de datos de ejemplo (trades, NAV records)
+3. `test_sync_parser.py` (prioridad más alta):
+   - Crear XML de ejemplo tipo IBKR
+   - Testear [parse_trades_from_xml()](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/routers/sync.py#68-228) con trades normales
+   - Testear con opciones (PUT, CALL)
+   - Testear con partial fills que deben agregarse
+   - Testear con XML vacío o malformado
+4. `test_trades.py`:
+   - CRUD completo: create, read, update, delete
+   - Filtros: por fecha, por ticker
+   - Paginación
+5. `test_metrics.py`:
+   - Win rate con datos conocidos
+   - P&L calculations
+   - Heatmap generation
+6. Agregar `pytest` y `httpx` a [requirements.txt](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/backend/requirements.txt)
+7. Agregar script en [package.json](file:///c:/Desarrollo/Actualizado%20Trading%20Journal/TradingJournalcodigo/TradingJournal/frontend/package.json) o Makefile: `pytest backend/tests/ -v`
+
+**Verificación:** Ejecutar `pytest backend/tests/ -v` → todos los tests deben pasar.
+
+---
+
+## Orden Recomendado de Ejecución
+
+1. **#2** (API_BASE) — 5 min, desbloquea testing en app empaquetada
+2. **#1** (Debug prints) — 10 min, limpieza rápida
+3. **#3** (Demo-data) — 10 min, protección simple
+4. **#17** (Gitignore) — 5 min, higiene de repo
+5. **#15** (Specs) — 10 min, limpieza
+6. **#16** (Scripts dev) — 15 min, organización
+7. **#7** (Versiones fijas) — 10 min, estabilidad
+8. **#9** (Puerto dinámico) — 20 min, robustez
+9. **#4** (Cifrado) — 1 hora, seguridad
+10. **#8** (DB corrupta) — 30 min, resiliencia
+11. **#6** (Migraciones) — 1 hora, mantenibilidad
+12. **#5** (Backup) — 2 horas, feature clave
+13. **#11** (Last sync) — 30 min, UX rápida
+14. **#13** (Banner offline) — 30 min, UX
+15. **#12** (Modales) — 1 hora, UX
+16. **#14** (Theme toggle) — 15 min, UX
+17. **#10** (Onboarding) — 2 horas, UX
+18. **#18** (Tests) — 3 horas, calidad

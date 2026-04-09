@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 243 75% 59%;
+    --radius: 0.75rem;
+    --profit: 142 76% 36%;
+    --loss: 0 84.2% 60.2%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 46%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 222.2 47.4% 11.2%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 243 75% 59%;
+    --profit: 142 76% 46%;
+    --loss: 0 62.8% 50.6%;
+  }
+
+  /* LLELB Theme - Black & Neon Green */
+  /* LLELB Theme - Black & Soft Green */
+  .llelb {
+    --background: 0 0% 5%;
+    /* Very dark grey/black #0d0d0d */
+    --foreground: 0 0% 100%;
+    /* White */
+    --card: 0 0% 0%;
+    /* Pure Black */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Soft Green Primary */
+    --primary: 101 55% 50%;
+    /* Softer green */
+    --primary-foreground: 0 0% 0%;
+    /* Black text on green */
+
+    --secondary: 0 0% 12%;
+    /* Dark grey for secondary backgrounds */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Strong Red for destructive/loss */
+    --destructive: 0 100% 50%;
+    /* #FF0000 */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 101 55% 50%;
+    /* Same as primary */
+    --success-foreground: 0 0% 0%;
+
+    --warning: 60 100% 50%;
+    /* Bright Yellow */
+    --warning-foreground: 0 0% 0%;
+
+    --border: 101 55% 50%;
+    /* Soft Green Borders */
+    --input: 0 0% 20%;
+    --ring: 101 55% 50%;
+
+    --radius: 0.5rem;
+
+    --profit: 101 55% 50%;
+    --loss: 0 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+
+  /* Glassmorphism Card */
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-[16px] border border-white/10 shadow-glass;
+  }
+
+  /* Glowing effects */
+  .glow-profit {
+    @apply shadow-glow-success;
+  }
+
+  .glow-loss {
+    @apply shadow-glow-danger;
+  }
+
+  /* Trading chart container */
+  .chart-container {
+    @apply relative w-full h-full min-h-[300px];
+  }
+
+  /* Animated number display */
+  .number-display {
+    @apply font-mono tabular-nums tracking-tight;
+  }
+
+  /* Smooth hover transitions */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .hover-lift:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+
+  /* Bento grid layout */
+  .bento-grid {
+    @apply grid gap-4 auto-rows-[minmax(180px, auto)];
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .bento-item-large {
+    @apply col-span-1 row-span-2;
+  }
+
+  .bento-item-wide {
+    @apply col-span-2 row-span-1;
+  }
+
+  @media (min-width: 1024px) {
+    .bento-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  /* Sidebar */
+  .sidebar {
+    @apply fixed left-0 top-0 h-full w-64 bg-card/95 backdrop-blur-md border-r border-border z-40 transition-transform duration-300;
+  }
+
+  .sidebar-collapsed {
+    @apply -translate-x-full md:translate-x-0 md:w-16;
+  }
+
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
+  }
+
+  /* Heatmap calendar */
+  .heatmap-cell {
+    @apply w-3 h-3 rounded-sm transition-all duration-200 cursor-pointer;
+  }
+
+  .heatmap-cell:hover {
+    @apply ring-2 ring-primary/50 ring-offset-1 ring-offset-background;
+  }
+
+  .heatmap-level-0 {
+    @apply bg-muted;
+  }
+
+  .heatmap-level-1 {
+    @apply bg-success/20;
+  }
+
+  .heatmap-level-2 {
+    @apply bg-success/40;
+  }
+
+  .heatmap-level-3 {
+    @apply bg-success/60;
+  }
+
+  .heatmap-level-4 {
+    @apply bg-success/80;
+  }
+
+  .heatmap-level--1 {
+    @apply bg-destructive/20;
+  }
+
+  .heatmap-level--2 {
+    @apply bg-destructive/40;
+  }
+
+  .heatmap-level--3 {
+    @apply bg-destructive/60;
+  }
+
+  .heatmap-level--4 {
+    @apply bg-destructive/80;
+  }
+
+  /* Gauge chart */
+  .gauge-container {
+    @apply relative w-32 h-16 overflow-hidden;
+  }
+
+  .gauge-background {
+    @apply absolute w-32 h-32 rounded-full border-8 border-muted;
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+  }
+
+  .gauge-fill {
+    @apply absolute w-32 h-32 rounded-full border-8;
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+    transform-origin: center center;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Table row states */
+  .trade-row-error {
+    @apply bg-destructive/5 hover:bg-destructive/10;
+  }
+
+  .trade-row-winner {
+    @apply hover:bg-success/5;
+  }
+
+  .trade-row-loser {
+    @apply hover:bg-destructive/5;
+  }
+
+  /* 30-min bar edge warning: entry in last 5 minutes of a 30-min candle */
+  .trade-row-bar-edge {
+    background-color: hsla(var(--warning) / 0.10);
+  }
+
+  .trade-row-bar-edge:hover {
+    background-color: hsla(var(--warning) / 0.18);
+  }
+}
+
+@layer utilities {
+
+  /* Animation utilities */
+  .animate-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .slide-in-up {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-profit {
+    @apply bg-gradient-to-r from-success/20 to-transparent;
+  }
+
+  .gradient-loss {
+    @apply bg-gradient-to-r from-destructive/20 to-transparent;
+  }
+
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+
+  .shimmer::before {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(90deg,
+        transparent,
+        hsla(var(--foreground) / 0.1),
+        transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
