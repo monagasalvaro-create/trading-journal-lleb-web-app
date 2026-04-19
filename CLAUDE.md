@@ -6,7 +6,7 @@ SaaS comercial para traders de Interactive Brokers. Seguridad, aislamiento multi
 
 - **Backend**: FastAPI, Python 3.12.12 (NO subir versión), SQLAlchemy async, Uvicorn `--loop asyncio` (NO `uvloop`).
 - **Frontend**: React 18 + TypeScript + Vite + TanStack Query 5 + Radix UI + Tailwind.
-- **DB**: SQLite dev (`sqlite+aiosqlite`), PostgreSQL prod (`postgresql+asyncpg`). URL via env.
+- **DB**: PostgreSQL en dev (docker-compose) y prod (Railway). `DATABASE_URL` es obligatorio — el backend no arranca sin él.
 - **Auth**: JWT HS256 `python-jose`, bcrypt `passlib`. Access 15m, refresh 7d con rotation.
 - **Cripto**: `cryptography.fernet` para Flex Token IBKR en reposo.
 - **Deploy**: Railway.app. `backend/Dockerfile` + `docker-compose.yml`.
