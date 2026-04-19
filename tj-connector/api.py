@@ -16,7 +16,8 @@ from strike_engine import calculate_strikes
 # The web app's origin — must match the deployed URL exactly.
 # Update this when the production domain is set.
 _WEB_APP_ORIGINS = [
-    "https://app.tudominio.com",   # Production (update before deploy)
+    "https://trading-journal-lleb-web-app.up.railway.app",  # Railway prod (update with real domain)
+    "https://app.tudominio.com",   # Custom domain (update before deploy)
     "http://localhost:5173",        # Vite dev server
     "http://localhost:3000",        # Alternative dev port
     "http://127.0.0.1:8000",       # Local FastAPI server (run_app.py mode)
