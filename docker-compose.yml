@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tj
+      POSTGRES_PASSWORD: tj
+      POSTGRES_DB: trading_journal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tj -d trading_journal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -9,9 +26,11 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/trading_journal.db
+      - DATABASE_URL=postgresql+asyncpg://tj:tj@postgres:5432/trading_journal
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -30,4 +49,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  data:
+  postgres_data:
