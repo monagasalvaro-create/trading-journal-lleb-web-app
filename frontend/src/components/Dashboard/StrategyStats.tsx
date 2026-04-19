@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useTrades } from '@/hooks/useTrades';
-import { cn, formatCurrency, getTradeType, getPsychologyTagLabel } from '@/lib/utils';
+import { cn, formatCurrency, getTradeType } from '@/lib/utils';
 import { ALL_STRATEGIES, getStrategyDirection } from '@/lib/strategies';
-import { ChevronLeft, ChevronRight, BarChart3, AlertTriangle, Activity } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation, useMonthNames } from '@/lib/i18n';
 
 interface StrategyStatsProps {
     className?: string;
@@ -24,17 +25,19 @@ interface StrategyData {
 export type TimeFilter = 'month' | 'week' | 'last_year' | 'all';
 
 export function StrategyStats({ className }: StrategyStatsProps) {
+    const { t } = useTranslation();
+    const monthNames = useMonthNames();
     const [timeFilter, setTimeFilter] = usePersistedState<TimeFilter>('tj_strategyStats_timeFilter', 'month');
     const [selectedDateStr, setSelectedDateStr] = usePersistedState<string>('tj_strategyStats_selectedDate', new Date().toISOString());
     const selectedDate = useMemo(() => new Date(selectedDateStr), [selectedDateStr]);
     const setSelectedDate = (d: Date) => setSelectedDateStr(d.toISOString());
 
+    const getPsychologyTagLabel = (tag: string) => t(`psychTag.${tag}`);
+
     const dateRange = useMemo(() => {
         const now = new Date();
         const currentYear = now.getFullYear();
 
-
-        // Helper to format as YYYY-MM-DD
         const fmt = (d: Date) => d.toISOString().split('T')[0];
 
         switch (timeFilter) {
@@ -44,9 +47,8 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                     end_date: fmt(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0))
                 };
             case 'week': {
-                // Start of current week (Monday)
-                const day = now.getDay(); // 0 is Sunday
-                const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+                const day = now.getDay();
+                const diff = now.getDate() - day + (day === 0 ? -6 : 1);
                 const monday = new Date(now.setDate(diff));
                 const sunday = new Date(now.setDate(monday.getDate() + 6));
                 return {
@@ -98,7 +100,6 @@ export function StrategyStats({ className }: StrategyStatsProps) {
         const eStats = new Map<string, number>();
         let errCount = 0;
 
-        // Initialize all strategies
         ALL_STRATEGIES.forEach((strategy) => {
             statsMap.set(strategy, {
                 name: strategy,
@@ -112,9 +113,7 @@ export function StrategyStats({ className }: StrategyStatsProps) {
             });
         });
 
-        // Calculate stats from trades
         tradesData.trades.forEach((trade) => {
-            // Strategy Stats
             if (trade.strategy) {
                 const stats = statsMap.get(trade.strategy);
                 if (stats) {
@@ -125,21 +124,18 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 }
             }
 
-            // Trade Type Stats
             const type = getTradeType(trade);
             if (tStats[type]) {
                 tStats[type].count++;
                 tStats[type].pnl += trade.net_pnl;
             }
 
-            // Error Stats
             if (trade.psychology_tag && trade.psychology_tag !== 'none') {
                 eStats.set(trade.psychology_tag, (eStats.get(trade.psychology_tag) || 0) + 1);
                 errCount++;
             }
         });
 
-        // Finalize Strategy Stats
         const result: StrategyData[] = [];
         statsMap.forEach((stats) => {
             if (stats.totalTrades > 0) {
@@ -149,7 +145,6 @@ export function StrategyStats({ className }: StrategyStatsProps) {
             result.push(stats);
         });
 
-        // Finalize Error Stats
         const errorResult = Array.from(eStats.entries()).map(([tag, count]) => ({
             tag,
             count,
@@ -164,9 +159,8 @@ export function StrategyStats({ className }: StrategyStatsProps) {
         };
     }, [tradesData]);
 
-    // Calculate totals
     const totals = useMemo(() => {
-        const total = strategyStats.reduce(
+        return strategyStats.reduce(
             (acc, s) => ({
                 trades: acc.trades + s.totalTrades,
                 wins: acc.wins + s.winningTrades,
@@ -175,12 +169,25 @@ export function StrategyStats({ className }: StrategyStatsProps) {
             }),
             { trades: 0, wins: 0, losses: 0, pnl: 0 }
         );
-        return total;
     }, [strategyStats]);
 
     const activeStrategies = strategyStats.filter((s) => s.totalTrades > 0);
     const callStrategies = activeStrategies.filter((s) => s.direction === 'CALL');
     const putStrategies = activeStrategies.filter((s) => s.direction === 'PUT');
+
+    const filterLabels: Record<TimeFilter, string> = {
+        month: t('dashboard.filter.month'),
+        week: t('strategyStats.thisWeek'),
+        last_year: t('strategyStats.filter.lastYear'),
+        all: t('strategyStats.allTime'),
+    };
+
+    const periodLabel = {
+        all: t('strategyStats.allTime'),
+        last_year: t('strategyStats.previousYear'),
+        week: t('strategyStats.thisWeek'),
+        month: t('strategyStats.currentMonth'),
+    }[timeFilter] ?? '';
 
     if (isLoading) {
         return (
@@ -188,7 +195,7 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                         <Activity className="w-4 h-4" />
-                        Performance Analysis
+                        {t('strategyStats.title')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -205,7 +212,6 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 key={strategy.name}
                 className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-accent/50 transition-colors"
             >
-                {/* Same row content as before */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm truncate">{strategy.name}</span>
@@ -236,13 +242,13 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                         <div className={cn('font-mono font-semibold', strategy.avgPnl >= 0 ? 'text-success' : 'text-destructive')}>
                             {formatCurrency(strategy.avgPnl)}
                         </div>
-                        <div className="text-muted-foreground">Avg</div>
+                        <div className="text-muted-foreground">{t('strategyStats.avg')}</div>
                     </div>
                     <div className="text-center min-w-[70px]">
                         <div className={cn('font-mono font-semibold', strategy.totalPnl >= 0 ? 'text-success' : 'text-destructive')}>
                             {strategy.totalPnl >= 0 ? '+' : ''}{formatCurrency(strategy.totalPnl)}
                         </div>
-                        <div className="text-muted-foreground">Total</div>
+                        <div className="text-muted-foreground">{t('strategyStats.total')}</div>
                     </div>
                 </div>
             </div>
@@ -252,7 +258,6 @@ export function StrategyStats({ className }: StrategyStatsProps) {
     const renderTypeCard = (type: string, data: { count: number, pnl: number }) => {
         const totalTrades = tradesData?.trades.length || 1;
         const percentage = (data.count / totalTrades) * 100;
-        // const avgPnl = data.count > 0 ? data.pnl / data.count : 0; // Removed as per request to show Total Realized
 
         return (
             <div className="flex flex-col p-3 rounded-lg bg-secondary/30 border border-border/50">
@@ -267,13 +272,13 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 </div>
                 <div className="flex justify-between items-end">
                     <div>
-                        <div className="text-xs text-muted-foreground">Total P&L</div>
+                        <div className="text-xs text-muted-foreground">{t('strategyStats.totalPnl')}</div>
                         <div className={cn("text-sm font-mono font-bold", data.pnl >= 0 ? "text-success" : "text-destructive")}>
                             {formatCurrency(data.pnl)}
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-xs text-muted-foreground">Trades</div>
+                        <div className="text-xs text-muted-foreground">{t('strategyStats.tradesLabel')}</div>
                         <div className="text-xs font-semibold">{data.count}</div>
                     </div>
                 </div>
@@ -288,10 +293,9 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Activity className="w-4 h-4" />
-                            Performance Analysis
+                            {t('strategyStats.title')}
                         </CardTitle>
 
-                        {/* Time Filter Controls */}
                         <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg">
                             {(['month', 'week', 'last_year', 'all'] as const).map((filter) => (
                                 <button
@@ -304,7 +308,7 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                                             : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                     )}
                                 >
-                                    {filter === 'last_year' ? 'Last Year' : filter.replace('_', ' ')}
+                                    {filterLabels[filter]}
                                 </button>
                             ))}
                         </div>
@@ -321,7 +325,7 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     <span className="flex-1 text-center font-bold text-foreground mx-4">
-                                        {selectedDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                                        {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
                                     </span>
                                     <button
                                         onClick={handleNextMonth}
@@ -332,15 +336,9 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                                     </button>
                                 </div>
                             ) : (
-                                <span className="font-bold text-foreground">
-                                    {timeFilter === 'all' ? 'All Time' :
-                                        timeFilter === 'last_year' ? 'Previous Year' :
-                                            timeFilter === 'week' ? 'This Week' :
-                                                'Current Month'}
-                                </span>
+                                <span className="font-bold text-foreground">{periodLabel}</span>
                             )}
                         </div>
-
                     </div>
                 </div>
             </CardHeader>
@@ -357,24 +355,24 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 <div>
                     <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                         <BarChart3 className="w-4 h-4" />
-                        Strategy Breakdown
+                        {t('strategyStats.breakdown')}
                     </h3>
                     <div className="space-y-4">
                         {activeStrategies.length === 0 ? (
                             <div className="text-center py-4 text-muted-foreground text-sm">
-                                No strategy data available
+                                {t('strategyStats.noData')}
                             </div>
                         ) : (
                             <>
                                 {callStrategies.length > 0 && (
                                     <div className="space-y-1">
-                                        <div className="text-xs font-semibold text-muted-foreground ml-1 mb-1">CALL Strategies</div>
+                                        <div className="text-xs font-semibold text-muted-foreground ml-1 mb-1">{t('strategyStats.callStrategies')}</div>
                                         {callStrategies.map((s) => renderStrategyRow(s, totals.trades))}
                                     </div>
                                 )}
                                 {putStrategies.length > 0 && (
                                     <div className="space-y-1 mt-2">
-                                        <div className="text-xs font-semibold text-muted-foreground ml-1 mb-1">PUT Strategies</div>
+                                        <div className="text-xs font-semibold text-muted-foreground ml-1 mb-1">{t('strategyStats.putStrategies')}</div>
                                         {putStrategies.map((s) => renderStrategyRow(s, totals.trades))}
                                     </div>
                                 )}
@@ -387,29 +385,27 @@ export function StrategyStats({ className }: StrategyStatsProps) {
                 <div>
                     <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4" />
-                        Error Analysis
+                        {t('strategyStats.errorAnalysis')}
                     </h3>
                     {totalErrors === 0 ? (
                         <div className="text-center py-4 text-muted-foreground text-sm border border-dashed border-border rounded-lg">
-                            🎉 No errors recorded! Great discipline.
+                            {t('strategyStats.noErrors')}
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {/* Most & Least Frequent */}
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-2 rounded bg-destructive/5 border border-destructive/10">
-                                    <div className="text-[10px] text-destructive uppercase tracking-wide font-bold mb-1">Most Frequent</div>
+                                    <div className="text-[10px] text-destructive uppercase tracking-wide font-bold mb-1">{t('strategyStats.mostFrequent')}</div>
                                     <div className="text-sm font-medium">{getPsychologyTagLabel(errorStats[0].tag)}</div>
-                                    <div className="text-xs text-muted-foreground">{errorStats[0].percentage.toFixed(1)}% of errors</div>
+                                    <div className="text-xs text-muted-foreground">{errorStats[0].percentage.toFixed(1)}{t('strategyStats.ofErrors')}</div>
                                 </div>
                                 <div className="p-2 rounded bg-success/5 border border-success/10">
-                                    <div className="text-[10px] text-success uppercase tracking-wide font-bold mb-1">Least Frequent</div>
+                                    <div className="text-[10px] text-success uppercase tracking-wide font-bold mb-1">{t('strategyStats.leastFrequent')}</div>
                                     <div className="text-sm font-medium">{getPsychologyTagLabel(errorStats[errorStats.length - 1].tag)}</div>
-                                    <div className="text-xs text-muted-foreground">{errorStats[errorStats.length - 1].percentage.toFixed(1)}% of errors</div>
+                                    <div className="text-xs text-muted-foreground">{errorStats[errorStats.length - 1].percentage.toFixed(1)}{t('strategyStats.ofErrors')}</div>
                                 </div>
                             </div>
 
-                            {/* Error Bars */}
                             <div className="space-y-2">
                                 {errorStats.map((stat) => (
                                     <div key={stat.tag} className="flex items-center gap-2 text-xs">

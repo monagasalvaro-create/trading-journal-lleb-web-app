@@ -11,7 +11,7 @@ from sqlalchemy import text
 logger = logging.getLogger(__name__)
 
 # Increment SCHEMA_VERSION when adding new migrations.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Each migration is a tuple: (version, description, list_of_sql_statements)
 # Migrations are applied in order. Each SQL statement is executed independently.
@@ -88,6 +88,19 @@ MIGRATIONS = [
             "ALTER TABLE account_equity_new RENAME TO account_equity;",
             "CREATE INDEX ix_account_equity_date ON account_equity (date);",
             "CREATE INDEX ix_account_equity_account_id ON account_equity (account_id);"
+        ],
+    ),
+    (
+        7,
+        "Add user_id to all tables for multi-user isolation (default='system' preserves existing data)",
+        [
+            # Each table gets a user_id column with DEFAULT 'system' so existing local data
+            # is preserved and automatically attributed to the legacy 'system' user.
+            "ALTER TABLE trades ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
+            "ALTER TABLE settings ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
+            "ALTER TABLE account_equity ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
+            "ALTER TABLE asset_board_items ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
+            "ALTER TABLE board_notes ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
         ],
     ),
 ]

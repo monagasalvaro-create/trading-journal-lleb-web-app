@@ -1,5 +1,5 @@
 /**
- * Equity Curve Chart using Recharts for better compatibility.
+ * Equity Curve Chart using Recharts.
  * Displays account balance over time with multiple time perspectives.
  */
 import { useMemo } from 'react';
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { useNAVHistory } from '@/hooks/useMetrics';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useTranslation, useMonthNames } from '@/lib/i18n';
 import { Calendar, CalendarDays, CalendarRange, History, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type TimePerspective = 'month' | 'days' | 'thisWeek' | 'months' | 'years';
@@ -37,6 +38,9 @@ interface ChartDataPoint {
 }
 
 export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercentage }: EquityCurveProps) {
+    const { t } = useTranslation();
+    const monthNames = useMonthNames();
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const [perspective, setPerspective] = usePersistedState<TimePerspective>('tj_equityCurve_perspective', 'month');
     const [selectedMonthYear, setSelectedMonthYear] = usePersistedState<{ year: number; month: number }>('tj_equityCurve_selectedMonthYear', {
         year: new Date().getFullYear(),
@@ -44,18 +48,15 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
     });
     const { data: navHistory, isLoading } = useNAVHistory();
 
-    // Process NAV data into chart format
     const chartData = useMemo(() => {
         if (!navHistory?.data || navHistory.data.length === 0) return [];
 
-        // Sort by date ascending
         const sorted = [...navHistory.data].sort((a, b) =>
             a.date.localeCompare(b.date)
         );
 
         const now = new Date();
 
-        // Filter based on perspective
         let filtered = sorted;
         let baselineBalance = 0;
         let startDate: Date | null = null;
@@ -66,10 +67,8 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
 
             if (perspective === 'month') {
                 startDateRef = new Date(selectedMonthYear.year, selectedMonthYear.month, 1);
-                // End of selected month (last day)
                 endDateRef = new Date(selectedMonthYear.year, selectedMonthYear.month + 1, 0);
             } else {
-                // thisWeek: Start of current week (Sunday)
                 const day = now.getDay();
                 const diff = now.getDate() - day;
                 startDateRef = new Date(now);
@@ -83,7 +82,6 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                 ? `${endDateRef.getFullYear()}-${String(endDateRef.getMonth() + 1).padStart(2, '0')}-${String(endDateRef.getDate()).padStart(2, '0')}`
                 : null;
 
-            // Find baseline (last record before start)
             const prePeriodRecords = sorted.filter(d => d.date < startStr);
             if (prePeriodRecords.length > 0) {
                 baselineBalance = prePeriodRecords[prePeriodRecords.length - 1].total_equity;
@@ -98,11 +96,10 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
 
         const dataPoints: ChartDataPoint[] = [];
 
-        // Inject starting point for 'month' or 'thisWeek'
         if ((perspective === 'month' || perspective === 'thisWeek') && baselineBalance > 0 && startDate) {
             dataPoints.push({
                 date: startDate.toISOString().split('T')[0],
-                periodFormatted: 'Start',
+                periodFormatted: t('equityCurve.start'),
                 accountBalance: baselineBalance,
                 dailyChange: 0
             });
@@ -111,7 +108,6 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
         let prevBalance = baselineBalance > 0 ? baselineBalance : (filtered.length > 0 ? filtered[0].total_equity : 0);
 
         filtered.forEach((d) => {
-            // Parse date correctly as local time to avoid timezone issues
             const [year, month, day] = d.date.split('-').map(Number);
             const date = new Date(year, month - 1, day);
             const dailyChange = d.total_equity - prevBalance;
@@ -126,17 +122,15 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                     periodKey = d.date;
                     break;
                 case 'months': {
-                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     periodKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                    periodFormatted = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
+                    periodFormatted = `${shortMonths[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
                     break;
                 }
                 case 'years':
                     periodKey = date.getFullYear().toString();
                     periodFormatted = date.getFullYear().toString();
                     break;
-                default: // days
+                default:
                     periodKey = d.date;
                     periodFormatted = formatDate(d.date);
             }
@@ -147,67 +141,44 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                     dataPoints[existingIdx].accountBalance = d.total_equity;
                     dataPoints[existingIdx].dailyChange += dailyChange;
                 } else {
-                    dataPoints.push({
-                        date: periodKey,
-                        periodFormatted,
-                        accountBalance: d.total_equity,
-                        dailyChange
-                    });
+                    dataPoints.push({ date: periodKey, periodFormatted, accountBalance: d.total_equity, dailyChange });
                 }
             } else {
-                dataPoints.push({
-                    date: d.date,
-                    periodFormatted,
-                    accountBalance: d.total_equity,
-                    dailyChange
-                });
+                dataPoints.push({ date: d.date, periodFormatted, accountBalance: d.total_equity, dailyChange });
             }
 
             prevBalance = d.total_equity;
         });
 
         return dataPoints;
-    }, [navHistory, perspective, selectedMonthYear]);
+    }, [navHistory, perspective, selectedMonthYear, t]);
 
-    // Calculate summary stats
     const summaryStats = useMemo(() => {
         if (!chartData || chartData.length === 0) return null;
 
         const lastBalance = chartData[chartData.length - 1].accountBalance;
 
-        // Use external P&L data only when the selected month is the actual current month
         const isCurrentMonth = perspective === 'month'
             && selectedMonthYear.year === new Date().getFullYear()
             && selectedMonthYear.month === new Date().getMonth();
 
         if (isCurrentMonth && externalPeriodPnl !== undefined && externalPeriodPercentage !== undefined) {
-            return {
-                currentBalance: lastBalance,
-                totalChange: externalPeriodPnl,
-                percentChange: externalPeriodPercentage,
-            };
+            return { currentBalance: lastBalance, totalChange: externalPeriodPnl, percentChange: externalPeriodPercentage };
         }
 
         const firstBalance = chartData[0].accountBalance;
         const totalChange = lastBalance - firstBalance;
         const percentChange = firstBalance > 0 ? (totalChange / firstBalance) * 100 : 0;
 
-        return {
-            currentBalance: lastBalance,
-            totalChange,
-            percentChange,
-        };
+        return { currentBalance: lastBalance, totalChange, percentChange };
     }, [chartData, perspective, externalPeriodPnl, externalPeriodPercentage, selectedMonthYear]);
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-
     const perspectiveOptions: { value: TimePerspective; label: string; icon: React.ReactNode }[] = [
-        { value: 'month', label: 'Month', icon: <CalendarCheck className="w-3.5 h-3.5" /> },
-        { value: 'days', label: 'Days', icon: <CalendarDays className="w-3.5 h-3.5" /> },
-        { value: 'thisWeek', label: 'This Week', icon: <CalendarRange className="w-3.5 h-3.5" /> },
-        { value: 'months', label: 'Months', icon: <Calendar className="w-3.5 h-3.5" /> },
-        { value: 'years', label: 'Years', icon: <History className="w-3.5 h-3.5" /> },
+        { value: 'month', label: t('equityCurve.perspective.month'), icon: <CalendarCheck className="w-3.5 h-3.5" /> },
+        { value: 'days', label: t('equityCurve.perspective.days'), icon: <CalendarDays className="w-3.5 h-3.5" /> },
+        { value: 'thisWeek', label: t('equityCurve.perspective.thisWeek'), icon: <CalendarRange className="w-3.5 h-3.5" /> },
+        { value: 'months', label: t('equityCurve.perspective.months'), icon: <Calendar className="w-3.5 h-3.5" /> },
+        { value: 'years', label: t('equityCurve.perspective.years'), icon: <History className="w-3.5 h-3.5" /> },
     ];
 
     const CustomTooltip = ({ active, payload }: any) => {
@@ -219,14 +190,14 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                     <div className="space-y-1.5">
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-2 h-2 rounded-full bg-primary" />
-                            <span className="text-muted-foreground">Balance:</span>
+                            <span className="text-muted-foreground">{t('equityCurve.tooltip.balance')}</span>
                             <span className="font-mono font-medium text-foreground">
                                 {formatCurrency(data?.accountBalance || 0)}
                             </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-2 h-2 rounded-full bg-muted" />
-                            <span className="text-muted-foreground">Change:</span>
+                            <span className="text-muted-foreground">{t('equityCurve.tooltip.change')}</span>
                             <span className={cn('font-mono font-medium', (data?.dailyChange ?? 0) >= 0 ? 'text-success' : 'text-destructive')}>
                                 {(data?.dailyChange ?? 0) >= 0 ? '+' : ''}{formatCurrency(data?.dailyChange || 0)}
                             </span>
@@ -242,7 +213,7 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
         return (
             <Card glass className={cn('h-full', className)}>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Equity Curve</CardTitle>
+                    <CardTitle className="text-base">{t('equityCurve.title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[350px] flex items-center justify-center">
                     <div className="shimmer w-full h-full rounded-lg bg-muted" />
@@ -255,19 +226,18 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
         return (
             <Card glass className={cn('h-full', className)}>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Equity Curve</CardTitle>
+                    <CardTitle className="text-base">{t('equityCurve.title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[350px] flex items-center justify-center">
                     <div className="text-center">
-                        <p className="text-muted-foreground">No account data available</p>
-                        <p className="text-sm text-muted-foreground mt-1">Click "Sync IBKR" to import data</p>
+                        <p className="text-muted-foreground">{t('equityCurve.noData')}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{t('equityCurve.syncHint')}</p>
                     </div>
                 </CardContent>
             </Card>
         );
     }
 
-    // Calculate Y-axis domain with some padding
     const balances = chartData.map(d => d.accountBalance);
     const minBalance = Math.min(...balances);
     const maxBalance = Math.max(...balances);
@@ -278,11 +248,9 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
         <Card glass className={cn('h-full', className)}>
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                    <CardTitle className="text-base">Equity Curve</CardTitle>
+                    <CardTitle className="text-base">{t('equityCurve.title')}</CardTitle>
 
-                    {/* Time Perspective Selector */}
                     <div className="flex items-center gap-2">
-                        {/* Month Selector — visible when perspective is 'month' */}
                         {perspective === 'month' && (
                             <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-md">
                                 <button
@@ -329,17 +297,16 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                     </div>
                 </div>
 
-                {/* Summary values */}
                 {summaryStats && (
                     <div className="flex gap-6 mt-2">
                         <div>
-                            <span className="text-xs text-muted-foreground">Current: </span>
+                            <span className="text-xs text-muted-foreground">{t('equityCurve.current')} </span>
                             <span className="text-sm font-semibold text-foreground">
                                 {formatCurrency(summaryStats.currentBalance)}
                             </span>
                         </div>
                         <div>
-                            <span className="text-xs text-muted-foreground">Period Change: </span>
+                            <span className="text-xs text-muted-foreground">{t('equityCurve.periodChange')} </span>
                             <span className={cn('text-sm font-semibold', summaryStats.totalChange >= 0 ? 'text-success' : 'text-destructive')}>
                                 {summaryStats.totalChange >= 0 ? '+' : ''}{formatCurrency(summaryStats.totalChange)}
                                 <span className="text-xs ml-1">
@@ -376,7 +343,6 @@ export function EquityCurve({ className, externalPeriodPnl, externalPeriodPercen
                             width={50}
                         />
                         <Tooltip content={<CustomTooltip />} />
-
                         <Area
                             type="monotone"
                             dataKey="accountBalance"

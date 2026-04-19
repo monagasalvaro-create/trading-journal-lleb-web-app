@@ -33,7 +33,10 @@ import {
     X,
     RefreshCw,
     AlertTriangle,
+    Info,
 } from 'lucide-react';
+import { IBKRConnectionError } from '@/components/ui/IBKRConnectionError';
+import { useTranslation } from '@/lib/i18n';
 
 // --- API Helper ---
 // Using relative path to avoid CORS/Origin issues
@@ -114,7 +117,7 @@ function getUnderlying(symbol: string): string {
 
 // --- Subcomponents ---
 
-function SortableItem({ asset, onDelete, isOutOfPlan, onOutOfPlanClick, onMissingStopClick }: { asset: Asset; onDelete: (id: number) => void; isOutOfPlan?: boolean; onOutOfPlanClick?: () => void; onMissingStopClick?: () => void }) {
+function SortableItem({ asset, onDelete, isOutOfPlan, onOutOfPlanClick, onMissingStopClick, onStrikeErrorClick }: { asset: Asset; onDelete: (id: number) => void; isOutOfPlan?: boolean; onOutOfPlanClick?: () => void; onMissingStopClick?: () => void; onStrikeErrorClick?: (error: string) => void }) {
     const {
         attributes,
         listeners,
@@ -186,7 +189,17 @@ function SortableItem({ asset, onDelete, isOutOfPlan, onOutOfPlanClick, onMissin
                                     <span className="text-[10px] bg-zinc-500/15 border border-zinc-500/30 text-zinc-300 font-mono px-1.5 py-0.5 rounded shadow-sm">P: {strikeData.strike_put} | C: {strikeData.strike_call}</span>
                                 )
                             ) : (
-                                <span className="text-[9px] text-destructive/80 bg-destructive/10 px-1 py-0.5 rounded line-through" title={strikeData?.message}>Err</span>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onStrikeErrorClick?.(strikeData?.message || 'Unknown Error');
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="p-0.5 text-destructive/80 hover:text-destructive bg-destructive/10 rounded-md transition-all"
+                                    title="Technical Error Details"
+                                >
+                                    <Info className="w-3.5 h-3.5" />
+                                </button>
                             )}
                         </div>
                     )}
@@ -264,6 +277,7 @@ function Column({
     outOfPlanIds,
     onOutOfPlanClick,
     onMissingStopClick,
+    onStrikeErrorClick,
 }: {
     id: string;
     title: string;
@@ -275,6 +289,7 @@ function Column({
     outOfPlanIds?: Set<number>;
     onOutOfPlanClick?: () => void;
     onMissingStopClick?: () => void;
+    onStrikeErrorClick?: (error: string) => void;
 }) {
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
@@ -320,7 +335,7 @@ function Column({
             <SortableContext items={assets.map(a => a.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex-1 overflow-y-auto min-h-[50px]">
                     {assets.map((asset) => (
-                        <SortableItem key={asset.id} asset={asset} onDelete={onDelete} isOutOfPlan={outOfPlanIds?.has(asset.id)} onOutOfPlanClick={onOutOfPlanClick} onMissingStopClick={onMissingStopClick} />
+                        <SortableItem key={asset.id} asset={asset} onDelete={onDelete} isOutOfPlan={outOfPlanIds?.has(asset.id)} onOutOfPlanClick={onOutOfPlanClick} onMissingStopClick={onMissingStopClick} onStrikeErrorClick={onStrikeErrorClick} />
                     ))}
                 </div>
             </SortableContext>
@@ -361,7 +376,7 @@ function ColumnDropWrapper(props: any) {
 
     return (
         <div ref={setNodeRef} className="h-full">
-            <Column {...props} allocation={props.allocation} />
+            <Column {...props} allocation={props.allocation} onStrikeErrorClick={props.onStrikeErrorClick} />
         </div>
     );
 }
@@ -454,8 +469,10 @@ export function AssetsPage() {
     const [activeDragItem, setActiveDragItem] = useState<Asset | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastSyncError, setLastSyncError] = useState<string | null>(null);
     const [capitalData, setCapitalData] = useState<CapitalData | null>(null);
     const [viewFilter, setViewFilter] = useState<ViewFilter>('all');
+    const { t } = useTranslation();
 
     // --- Dialog state for replacing native confirm()/alert() ---
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -756,6 +773,7 @@ export function AssetsPage() {
     };
 
     const handleSyncPositions = async () => {
+        setLastSyncError(null);
         try {
             const res = await fetch(getUrl(`/sync-positions?target_date=${formatDateAPI(selectedDate)}`), { method: 'POST' });
             if (!res.ok) {
@@ -768,6 +786,7 @@ export function AssetsPage() {
             showAlert('Sync Complete', data.message, 'info');
         } catch (e: any) {
             console.error("Failed to sync positions", e);
+            setLastSyncError(e.message || "Unknown error");
             showAlert('Sync Failed', `Failed to sync positions: ${e.message}`);
         }
     };
@@ -787,6 +806,14 @@ export function AssetsPage() {
             'destructive'
         );
     }, [showAlert]);
+
+    const handleStrikeErrorClick = useCallback((technicalError: string) => {
+        showAlert(
+            t('error.ibkrDisconnected'),
+            `${t('error.ibkrDisconnectedDescription')}\n\nTechnical Details: ${technicalError}`,
+            'destructive'
+        );
+    }, [showAlert, t]);
 
     // --- Render ---
 
@@ -827,17 +854,27 @@ export function AssetsPage() {
     }
 
     if (error) {
+        const isIbkrError = error.includes('Could not connect to IBKR') || error.includes('10061');
+        
         return (
             <div className="h-full p-6 flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-destructive mb-2">Error loading boards</p>
-                    <p className="text-muted-foreground text-sm">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
-                    >
-                        Retry
-                    </button>
+                <div className="max-w-2xl w-full space-y-6">
+                    {isIbkrError ? (
+                        <IBKRConnectionError error={error} />
+                    ) : (
+                        <div className="text-center p-8 bg-destructive/5 rounded-xl border border-destructive/10">
+                            <p className="text-destructive mb-2 font-semibold">Error loading boards</p>
+                            <p className="text-muted-foreground text-sm">{error}</p>
+                        </div>
+                    )}
+                    <div className="flex justify-center">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium shadow-sm hover:translate-y-[-1px] active:translate-y-[1px] transition-all"
+                        >
+                            Retry
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -891,14 +928,25 @@ export function AssetsPage() {
                     </button>
                 )}
 
-                <button
-                    onClick={handleSyncPositions}
-                    className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2"
-                    title="Fetch open positions from IBKR"
-                >
-                    <RefreshCw className="w-3 h-3" />
-                    Sync Positions
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSyncPositions}
+                        className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-2 shadow-sm"
+                        title="Fetch open positions from IBKR"
+                    >
+                        <RefreshCw className="w-3 h-3" />
+                        Sync Positions
+                    </button>
+                    {lastSyncError && (
+                        <button
+                            onClick={() => showAlert('Technical Details', lastSyncError, 'info')}
+                            className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded-full transition-all"
+                            title="See error details"
+                        >
+                            <Info className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
 
                 {/* View Filter */}
                 <div className="flex items-center gap-1 ml-4 bg-secondary/30 rounded-lg px-1 py-0.5 border border-white/5">
@@ -948,10 +996,10 @@ export function AssetsPage() {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <ColumnDropWrapper id="60" title="60%" color="bg-emerald-500" assets={portfolioAssets.filter(a => a.column_id === '60')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['60'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} />
-                        <ColumnDropWrapper id="30" title="30%" color="bg-blue-600" assets={portfolioAssets.filter(a => a.column_id === '30')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['30'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} />
-                        <ColumnDropWrapper id="10" title="10%" color="bg-orange-600" assets={portfolioAssets.filter(a => a.column_id === '10')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['10'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} />
-                        <ColumnDropWrapper id="active" title="Active" color="bg-zinc-600" assets={portfolioAssets.filter(a => a.column_id === 'active')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} />
+                        <ColumnDropWrapper id="60" title="60%" color="bg-emerald-500" assets={portfolioAssets.filter(a => a.column_id === '60')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['60'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} onStrikeErrorClick={handleStrikeErrorClick} />
+                        <ColumnDropWrapper id="30" title="30%" color="bg-blue-600" assets={portfolioAssets.filter(a => a.column_id === '30')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['30'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} onStrikeErrorClick={handleStrikeErrorClick} />
+                        <ColumnDropWrapper id="10" title="10%" color="bg-orange-600" assets={portfolioAssets.filter(a => a.column_id === '10')} onAdd={handleAdd} onDelete={handleDelete} allocation={capitalData?.segments?.['10'] ?? null} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} onStrikeErrorClick={handleStrikeErrorClick} />
+                        <ColumnDropWrapper id="active" title="Active" color="bg-zinc-600" assets={portfolioAssets.filter(a => a.column_id === 'active')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onMissingStopClick={handleMissingStopClick} onStrikeErrorClick={handleStrikeErrorClick} />
                     </div>
                     <BoardNotes boardType="portfolio" selectedDate={selectedDate} />
                 </div>
@@ -987,9 +1035,9 @@ export function AssetsPage() {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <ColumnDropWrapper id="calls" title="CALLS" color="bg-emerald-700" assets={optionsAssets.filter(a => a.column_id === 'calls')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} />
-                        <ColumnDropWrapper id="puts" title="PUTS" color="bg-red-800" assets={optionsAssets.filter(a => a.column_id === 'puts')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} />
-                        <ColumnDropWrapper id="underlying" title="Underlying" color="bg-zinc-600" assets={optionsAssets.filter(a => a.column_id === 'underlying')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} />
+                        <ColumnDropWrapper id="calls" title="CALLS" color="bg-emerald-700" assets={optionsAssets.filter(a => a.column_id === 'calls')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onStrikeErrorClick={handleStrikeErrorClick} />
+                        <ColumnDropWrapper id="puts" title="PUTS" color="bg-red-800" assets={optionsAssets.filter(a => a.column_id === 'puts')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onStrikeErrorClick={handleStrikeErrorClick} />
+                        <ColumnDropWrapper id="underlying" title="Underlying" color="bg-zinc-600" assets={optionsAssets.filter(a => a.column_id === 'underlying')} onAdd={handleAdd} onDelete={handleDelete} outOfPlanIds={outOfPlanIds} onOutOfPlanClick={handleOutOfPlanClick} onStrikeErrorClick={handleStrikeErrorClick} />
                     </div>
                     <BoardNotes boardType="options" selectedDate={selectedDate} />
                 </div>

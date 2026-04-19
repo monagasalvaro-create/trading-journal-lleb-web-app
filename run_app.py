@@ -1,17 +1,19 @@
 """
 Trading Journal Pro - Main Application Entry Point
-Cross-platform application launcher using PyWebView for native window rendering.
-Supports Windows (WinForms/.NET) and macOS (Cocoa/WebKit).
+Launches the FastAPI backend and opens the system's default browser.
+Replaces the pywebview-based native window approach for cross-platform compatibility.
 """
 import os
 import sys
 import threading
 import uvicorn
 import time
+import webbrowser
 import urllib.request
 import urllib.error
 import logging
 from pathlib import Path
+
 
 # Fix SSL certificate verification issues for bundled macOS apps
 import ssl
@@ -21,8 +23,6 @@ except AttributeError:
     pass
 else:
     ssl._create_default_https_context = _create_unverified_https_context
-
-import webview
 
 
 # --- Ensure backend bare imports resolve correctly ---
@@ -107,7 +107,7 @@ def get_resource_path(relative_path):
 
 # --- Backend Server ---
 def wait_for_backend(host="127.0.0.1", port=8000, timeout=30):
-    """Wait for the FastAPI backend to become responsive before launching UI."""
+    """Wait for the FastAPI backend to become responsive before opening the browser."""
     url = f"http://{host}:{port}/api/health"
     start_time = time.time()
     logger.info(f"Waiting for backend at {url}...")
@@ -137,7 +137,7 @@ def start_backend():
 
 # --- Main Application ---
 def start_app():
-    """Launch the application with a native window via PyWebView."""
+    """Launch the backend and open the system browser. No native window required."""
     logger.info("=" * 50)
     logger.info("STARTING TRADING JOURNAL PRO")
     logger.info(f"Platform: {sys.platform}")
@@ -157,48 +157,25 @@ def start_app():
     backend_thread = threading.Thread(target=start_backend, daemon=True)
     backend_thread.start()
 
-    # Wait for backend to be ready
+    # Wait for backend to be ready before opening the browser
     if not wait_for_backend():
         logger.error("Backend failed to start - aborting")
         return
 
     app_url = "http://127.0.0.1:8000"
-    logger.info(f"Opening native window with URL: {app_url}")
+    logger.info(f"Opening browser at: {app_url}")
 
+    # Open the user's default browser instead of a native pywebview window.
+    # This eliminates all cross-platform compatibility issues (WebView2, Gatekeeper, etc.)
+    webbrowser.open(app_url)
+
+    # Keep the process alive while the backend server runs.
+    # The backend thread is a daemon, so it will stop when this process exits.
     try:
-        # Create native window
-        window = webview.create_window(
-            title="Trading Journal Pro",
-            url=app_url,
-            width=1300,
-            height=900,
-            resizable=True,
-            min_size=(800, 600),
-            text_select=True,
-        )
-
-        logger.info("Window created, starting GUI...")
-
-        # Persistent storage path for WebView2 (localStorage, cookies, cache).
-        # Without this, private_mode=True (default) wipes all data each session.
-        webview_data_dir = str(Path.home() / ".tradingjournal" / "webview_data")
-        logger.info(f"WebView storage: {webview_data_dir}")
-
-        # Determine the GUI backend based on platform
-        # - Windows: uses WinForms/.NET (WebView2) by default
-        # - macOS: uses Cocoa/WebKit by default
-        # PyWebView auto-selects the correct backend, so no explicit gui= needed
-        webview.start(
-            debug=False,
-            private_mode=False,
-            storage_path=webview_data_dir,
-        )
-
-        logger.info("Application closed normally")
-
-    except Exception as e:
-        logger.exception(f"Error creating window: {e}")
-        raise
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down Trading Journal Pro")
 
 
 if __name__ == "__main__":

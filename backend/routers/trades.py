@@ -1,8 +1,9 @@
 """
 Trades API router - CRUD operations for trading journal entries.
 Supports multi-account isolation via X-Account-ID request header.
+Supports multi-user isolation via user_id from JWT middleware.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List
@@ -16,12 +17,14 @@ from schemas import (
     TradeResponse,
     TradeListResponse,
 )
+from auth_utils import get_user_id_from_request
 
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 
 
 @router.get("", response_model=TradeListResponse)
 async def get_trades(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=5000),
     ticker: Optional[str] = None,
@@ -35,7 +38,10 @@ async def get_trades(
 ):
     """Get paginated list of trades with optional filters, scoped to the active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     query = select(Trade).where(Trade.account_id == account_id)
+    if user_id:
+        query = query.where(Trade.user_id == user_id)
 
     if ticker:
         query = query.where(Trade.ticker.ilike(f"%{ticker}%"))
@@ -71,14 +77,17 @@ async def get_trades(
 @router.get("/{trade_id}", response_model=TradeResponse)
 async def get_trade(
     trade_id: str,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single trade by ID."""
     account_id = x_account_id or "default"
-    result = await db.execute(
-        select(Trade).where(Trade.id == trade_id, Trade.account_id == account_id)
-    )
+    user_id = get_user_id_from_request(request)
+    conditions = [Trade.id == trade_id, Trade.account_id == account_id]
+    if user_id:
+        conditions.append(Trade.user_id == user_id)
+    result = await db.execute(select(Trade).where(*conditions))
     trade = result.scalar_one_or_none()
 
     if not trade:
@@ -90,11 +99,13 @@ async def get_trade(
 @router.post("", response_model=TradeResponse)
 async def create_trade(
     trade_data: TradeCreate,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new trade entry scoped to the active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     trade_id = Trade.generate_id(trade_data.ticker, trade_data.entry_date, account_id=account_id)
 
     existing = await db.execute(
@@ -108,6 +119,7 @@ async def create_trade(
     trade = Trade(
         id=trade_id,
         account_id=account_id,
+        user_id=user_id or "system",
         gross_pnl=gross_pnl,
         **trade_data.model_dump(),
     )
@@ -123,14 +135,17 @@ async def create_trade(
 async def update_trade(
     trade_id: str,
     trade_data: TradeUpdate,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Update an existing trade (auto-save from inline editing)."""
     account_id = x_account_id or "default"
-    result = await db.execute(
-        select(Trade).where(Trade.id == trade_id, Trade.account_id == account_id)
-    )
+    user_id = get_user_id_from_request(request)
+    conditions = [Trade.id == trade_id, Trade.account_id == account_id]
+    if user_id:
+        conditions.append(Trade.user_id == user_id)
+    result = await db.execute(select(Trade).where(*conditions))
     trade = result.scalar_one_or_none()
 
     if not trade:
@@ -159,14 +174,17 @@ async def update_trade(
 @router.delete("/{trade_id}")
 async def delete_trade(
     trade_id: str,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a trade by ID."""
     account_id = x_account_id or "default"
-    result = await db.execute(
-        select(Trade).where(Trade.id == trade_id, Trade.account_id == account_id)
-    )
+    user_id = get_user_id_from_request(request)
+    conditions = [Trade.id == trade_id, Trade.account_id == account_id]
+    if user_id:
+        conditions.append(Trade.user_id == user_id)
+    result = await db.execute(select(Trade).where(*conditions))
     trade = result.scalar_one_or_none()
 
     if not trade:
@@ -181,18 +199,21 @@ async def delete_trade(
 @router.get("/by-date/{target_date}", response_model=List[TradeResponse])
 async def get_trades_by_date(
     target_date: date,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all trades closed on a specific date (for heatmap drill-down), scoped to active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
+    conditions = [
+        Trade.account_id == account_id,
+        func.coalesce(Trade.exit_date, Trade.entry_date) == target_date,
+    ]
+    if user_id:
+        conditions.append(Trade.user_id == user_id)
     result = await db.execute(
-        select(Trade)
-        .where(
-            Trade.account_id == account_id,
-            func.coalesce(Trade.exit_date, Trade.entry_date) == target_date,
-        )
-        .order_by(Trade.ticker)
+        select(Trade).where(*conditions).order_by(Trade.ticker)
     )
     trades = result.scalars().all()
 

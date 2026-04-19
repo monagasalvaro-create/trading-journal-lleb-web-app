@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { strikeCalculatorApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { IBKRConnectionError } from '@/components/ui/IBKRConnectionError';
 import type { StrikeCalculatorResult } from '@/lib/types';
 import {
     Calculator,
@@ -188,19 +189,25 @@ export function StrikeCalculator({ className, isActive = true }: StrikeCalculato
 
             {/* Error Message */}
             {result && !result.success && (
-                <Card glass className="animate-fade-in">
-                    <CardContent className="p-5">
-                        <div className="flex items-start gap-3 text-destructive">
-                            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium">Calculation Failed</p>
-                                <p className="text-xs text-destructive/80">
-                                    {result.message || 'Unknown error occurred.'}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="animate-fade-in">
+                    {(result.message?.includes('Could not connect to IBKR') || result.message?.includes('10061')) ? (
+                        <IBKRConnectionError error={result.message} />
+                    ) : (
+                        <Card glass>
+                            <CardContent className="p-5">
+                                <div className="flex items-start gap-3 text-destructive">
+                                    <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium">Calculation Failed</p>
+                                        <p className="text-xs text-destructive/80">
+                                            {result.message || 'Unknown error occurred.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             )}
 
             {/* Results */}

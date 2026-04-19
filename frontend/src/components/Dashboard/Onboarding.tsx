@@ -1,17 +1,13 @@
 /**
- * Onboarding wizard — shown to first-time users who haven't configured IBKR
- * credentials yet and have no trades.
- *
- * Three steps:
- *  1. Welcome overview
- *  2. Configure IBKR credentials (Flex Token + Query ID)
- *  3. Sync data
+ * Onboarding wizard — shown to first-time users.
+ * Three steps: Welcome, Configure IBKR credentials, Sync data.
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, syncApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n';
 import {
     ArrowRight,
     ArrowLeft,
@@ -32,7 +28,6 @@ interface OnboardingProps {
     onComplete: () => void;
 }
 
-// --- Step indicator ---
 function StepIndicator({ current, total }: { current: number; total: number }) {
     return (
         <div className="flex items-center gap-2">
@@ -53,7 +48,6 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
     );
 }
 
-// --- Feature card ---
 function FeatureCard({
     icon: Icon,
     title,
@@ -77,6 +71,7 @@ function FeatureCard({
 }
 
 export function Onboarding({ onComplete }: OnboardingProps) {
+    const { t } = useTranslation();
     const [step, setStep] = useState(0);
     const [flexToken, setFlexToken] = useState('');
     const [queryId, setQueryId] = useState('');
@@ -86,12 +81,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
     const queryClient = useQueryClient();
 
-    // Save credentials mutation
     const saveMutation = useMutation({
         mutationFn: () =>
             settingsApi.update({
-                flex_token: flexToken,
-                query_id: queryId,
+                flex_token: flexToken.trim(),
+                query_id: queryId.trim(),
             }),
         onSuccess: () => {
             setSaveStatus('saved');
@@ -102,7 +96,6 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         },
     });
 
-    // Sync mutation
     const syncMutation = useMutation({
         mutationFn: () => syncApi.sync(),
         onSuccess: (data) => {
@@ -141,26 +134,22 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-            {/* Subtle background pattern */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
                 <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-primary/3 rounded-full blur-3xl" />
             </div>
 
             <div className="relative w-full max-w-lg mx-4">
-                {/* Skip button */}
                 <button
                     onClick={handleSkip}
                     className="absolute -top-10 right-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                    Skip setup <SkipForward className="w-3.5 h-3.5" />
+                    {t('onboarding.skip')} <SkipForward className="w-3.5 h-3.5" />
                 </button>
 
-                {/* Card */}
                 <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-                    {/* Step content */}
                     <div className="p-8">
-                        {/* ===== Step 0: Welcome ===== */}
+                        {/* Step 0: Welcome */}
                         {step === 0 && (
                             <div className="animate-in fade-in duration-300">
                                 <div className="text-center mb-8">
@@ -168,39 +157,39 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                         <TrendingUp className="w-7 h-7 text-primary" />
                                     </div>
                                     <h2 className="text-2xl font-bold text-foreground">
-                                        Welcome to Trading Journal Pro
+                                        {t('onboarding.welcome.title')}
                                     </h2>
                                     <p className="text-sm text-muted-foreground mt-2">
-                                        Track, analyze, and improve your trading performance
+                                        {t('onboarding.welcome.subtitle')}
                                     </p>
                                 </div>
 
                                 <div className="space-y-3">
                                     <FeatureCard
                                         icon={BarChart3}
-                                        title="Performance Analytics"
-                                        description="Detailed metrics, equity curves, and P&L heatmaps for every trade."
+                                        title={t('onboarding.welcome.feature1.title')}
+                                        description={t('onboarding.welcome.feature1.desc')}
                                     />
                                     <FeatureCard
                                         icon={PieChart}
-                                        title="Portfolio Board"
-                                        description="Visual Kanban-style boards to organize and track your positions."
+                                        title={t('onboarding.welcome.feature2.title')}
+                                        description={t('onboarding.welcome.feature2.desc')}
                                     />
                                     <FeatureCard
                                         icon={Target}
-                                        title="Strike Calculator"
-                                        description="Real-time options strike calculation with implied volatility."
+                                        title={t('onboarding.welcome.feature3.title')}
+                                        description={t('onboarding.welcome.feature3.desc')}
                                     />
                                     <FeatureCard
                                         icon={Shield}
-                                        title="IBKR Integration"
-                                        description="Automatic sync with Interactive Brokers via FlexQuery reports."
+                                        title={t('onboarding.welcome.feature4.title')}
+                                        description={t('onboarding.welcome.feature4.desc')}
                                     />
                                 </div>
                             </div>
                         )}
 
-                        {/* ===== Step 1: Configure IBKR ===== */}
+                        {/* Step 1: Configure IBKR */}
                         {step === 1 && (
                             <div className="animate-in fade-in duration-300">
                                 <div className="text-center mb-6">
@@ -208,17 +197,17 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                         <Key className="w-7 h-7 text-primary" />
                                     </div>
                                     <h2 className="text-xl font-bold text-foreground">
-                                        Connect Your IBKR Account
+                                        {t('onboarding.credentials.title')}
                                     </h2>
                                     <p className="text-sm text-muted-foreground mt-2">
-                                        Enter your FlexQuery credentials to auto-import trades
+                                        {t('onboarding.credentials.subtitle')}
                                     </p>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                                            Flex Token
+                                            {t('accountManager.flexToken')}
                                         </label>
                                         <input
                                             type="password"
@@ -227,13 +216,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                                 setFlexToken(e.target.value);
                                                 setSaveStatus('idle');
                                             }}
-                                            placeholder="Enter your Flex Token"
+                                            placeholder={t('onboarding.credentials.placeholder.token')}
                                             className="w-full bg-secondary text-sm rounded-lg px-3 py-2.5 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                                            Query ID
+                                            {t('accountManager.queryId')}
                                         </label>
                                         <input
                                             type="text"
@@ -242,7 +231,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                                 setQueryId(e.target.value);
                                                 setSaveStatus('idle');
                                             }}
-                                            placeholder="Enter your Query ID"
+                                            placeholder={t('onboarding.credentials.placeholder.queryId')}
                                             className="w-full bg-secondary text-sm rounded-lg px-3 py-2.5 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
                                         />
                                     </div>
@@ -254,23 +243,23 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     >
                                         {saveStatus === 'saving' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                         {saveStatus === 'saved' && <Check className="w-4 h-4 mr-2" />}
-                                        {saveStatus === 'saved' ? 'Credentials Saved' : 'Save Credentials'}
+                                        {saveStatus === 'saved' ? t('onboarding.credentials.saved') : t('onboarding.credentials.save')}
                                     </Button>
 
                                     {saveStatus === 'error' && (
                                         <p className="text-xs text-destructive text-center">
-                                            Failed to save credentials. Please try again.
+                                            {t('onboarding.credentials.error')}
                                         </p>
                                     )}
 
                                     <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
-                                        Your credentials are stored locally and encrypted. They are never sent to any external server.
+                                        {t('onboarding.credentials.securityNote')}
                                     </p>
                                 </div>
                             </div>
                         )}
 
-                        {/* ===== Step 2: Sync ===== */}
+                        {/* Step 2: Sync */}
                         {step === 2 && (
                             <div className="animate-in fade-in duration-300">
                                 <div className="text-center mb-6">
@@ -278,10 +267,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                         <Zap className="w-7 h-7 text-primary" />
                                     </div>
                                     <h2 className="text-xl font-bold text-foreground">
-                                        Sync Your Trades
+                                        {t('onboarding.sync.title')}
                                     </h2>
                                     <p className="text-sm text-muted-foreground mt-2">
-                                        Import your trade history from Interactive Brokers
+                                        {t('onboarding.sync.subtitle')}
                                     </p>
                                 </div>
 
@@ -291,12 +280,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                             <div className="p-6 rounded-xl bg-secondary/30 border border-border/50">
                                                 <RefreshCw className="w-10 h-10 text-primary/40 mx-auto mb-3" />
                                                 <p className="text-sm text-muted-foreground">
-                                                    Click the button below to import your trades. This may take a moment.
+                                                    {t('onboarding.sync.description')}
                                                 </p>
                                             </div>
                                             <Button onClick={handleSync} className="w-full">
                                                 <RefreshCw className="w-4 h-4 mr-2" />
-                                                Sync Now
+                                                {t('onboarding.sync.button')}
                                             </Button>
                                         </div>
                                     )}
@@ -304,9 +293,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     {syncStatus === 'syncing' && (
                                         <div className="text-center p-8">
                                             <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
-                                            <p className="text-sm font-medium text-foreground">Syncing trades...</p>
+                                            <p className="text-sm font-medium text-foreground">{t('onboarding.sync.syncing')}</p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                Fetching data from IBKR FlexQuery
+                                                {t('onboarding.sync.syncingSubtitle')}
                                             </p>
                                         </div>
                                     )}
@@ -314,7 +303,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     {syncStatus === 'done' && (
                                         <div className="text-center p-6 rounded-xl bg-success/10 border border-success/20">
                                             <Check className="w-10 h-10 text-success mx-auto mb-3" />
-                                            <p className="text-sm font-semibold text-success">Sync Complete!</p>
+                                            <p className="text-sm font-semibold text-success">{t('onboarding.sync.complete')}</p>
                                             <p className="text-xs text-muted-foreground mt-1">{syncMessage}</p>
                                         </div>
                                     )}
@@ -322,12 +311,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     {syncStatus === 'error' && (
                                         <div className="space-y-3">
                                             <div className="text-center p-6 rounded-xl bg-destructive/10 border border-destructive/20">
-                                                <p className="text-sm font-semibold text-destructive">Sync Failed</p>
+                                                <p className="text-sm font-semibold text-destructive">{t('onboarding.sync.failed')}</p>
                                                 <p className="text-xs text-muted-foreground mt-1">{syncMessage}</p>
                                             </div>
                                             <Button onClick={handleSync} variant="outline" className="w-full">
                                                 <RefreshCw className="w-4 h-4 mr-2" />
-                                                Retry
+                                                {t('onboarding.sync.retry')}
                                             </Button>
                                         </div>
                                     )}
@@ -344,13 +333,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                             {step > 0 && (
                                 <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)}>
                                     <ArrowLeft className="w-4 h-4 mr-1" />
-                                    Back
+                                    {t('common.back')}
                                 </Button>
                             )}
 
                             {step === 0 && (
                                 <Button size="sm" onClick={() => setStep(1)}>
-                                    Get Started
+                                    {t('onboarding.welcome.getStarted')}
                                     <ArrowRight className="w-4 h-4 ml-1" />
                                 </Button>
                             )}
@@ -361,14 +350,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     onClick={() => setStep(2)}
                                     disabled={!canProceedFromStep1}
                                 >
-                                    Next
+                                    {t('common.next')}
                                     <ArrowRight className="w-4 h-4 ml-1" />
                                 </Button>
                             )}
 
                             {step === 2 && (
                                 <Button size="sm" onClick={handleFinish}>
-                                    {syncStatus === 'done' ? 'Go to Dashboard' : 'Finish Setup'}
+                                    {syncStatus === 'done' ? t('onboarding.finish.withSync') : t('onboarding.finish.withoutSync')}
                                     <ArrowRight className="w-4 h-4 ml-1" />
                                 </Button>
                             )}

@@ -2,7 +2,7 @@
 IBKR Flex Service sync router - Integration with Interactive Brokers.
 Handles both Trades and NAV (Equity) data from Flex Query XML.
 """
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 import httpx
@@ -17,6 +17,7 @@ from database import get_db
 from models import Trade, AccountEquity, Settings
 from schemas import IBKRSyncRequest, IBKRSyncResponse
 from crypto import decrypt
+from auth_utils import get_user_id_from_request
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -332,7 +333,8 @@ async def get_stored_credentials(db: AsyncSession, account_id: str) -> Tuple[Opt
 
 @router.post("", response_model=IBKRSyncResponse)
 async def sync_ibkr(
-    request: IBKRSyncRequest = None,
+    request: Request,
+    body: IBKRSyncRequest = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -341,15 +343,16 @@ async def sync_ibkr(
     Uses stored credentials if none provided in request.
     """
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     # Get credentials - prefer request params, fallback to stored for the active account
-    token = request.token if request and request.token else None
-    query_id = request.query_id if request and request.query_id else None
+    token = body.token if body and body.token else None
+    query_id = body.query_id if body and body.query_id else None
 
     if not token or not query_id:
         stored_token, stored_query_id = await get_stored_credentials(db, account_id)
         token = token or stored_token
         query_id = query_id or stored_query_id
-    
+
     if not token or not query_id:
         return IBKRSyncResponse(
             success=False,
@@ -449,6 +452,7 @@ async def sync_ibkr(
                 new_trade = Trade(
                     id=trade_id,
                     account_id=account_id,
+                    user_id=user_id or "system",
                     ticker=trade_data["ticker"],
                     underlying_symbol=trade_data.get("underlying_symbol"),
                     entry_date=trade_data["entry_date"],

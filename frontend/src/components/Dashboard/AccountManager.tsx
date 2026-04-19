@@ -1,14 +1,5 @@
 /**
  * AccountManager — UI component for managing multiple IBKR trading accounts.
- *
- * Each account card is expandable and shows:
- *   - Account name (inline rename)
- *   - IBKR Flex Token + Query ID (inline editable)
- *   - Test connection button
- *   - Sync Now shortcut
- *
- * Switching accounts clears the React Query cache so all data reloads
- * from the newly selected account automatically.
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +8,7 @@ import type { AccountSummary } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n';
 import {
     Plus,
     Pencil,
@@ -29,13 +21,11 @@ import {
     Key,
     AlertCircle,
     RefreshCw,
-    TestTube,
-    Save,
     Eye,
     EyeOff,
 } from 'lucide-react';
 
-// ─── Credential Editor Panel (expanded per account) ───────────────────────────
+// ─── Credential Editor Panel ───────────────────────────────────────────────────
 
 interface CredentialPanelProps {
     accountId: string;
@@ -44,16 +34,15 @@ interface CredentialPanelProps {
 }
 
 function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanelProps) {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
 
     const [flexToken, setFlexToken] = useState('');
     const [queryId, setQueryId] = useState('');
     const [showToken, setShowToken] = useState(false);
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-    const [isTesting, setIsTesting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
 
-    // Save credentials via the existing settings endpoint (scoped by X-Account-ID injected automatically or manually)
     const saveMutation = useMutation({
         mutationFn: () =>
             settingsApi.update({
@@ -69,22 +58,6 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
         },
     });
 
-    const handleTest = async () => {
-        // Save first if there are unsaved changes
-        if (flexToken.trim() || queryId.trim()) {
-            await saveMutation.mutateAsync();
-        }
-        setIsTesting(true);
-        setTestResult(null);
-        try {
-            const result = await settingsApi.testConnection(accountId);
-            setTestResult(result);
-        } catch {
-            setTestResult({ success: false, message: 'Connection test failed.' });
-        } finally {
-            setIsTesting(false);
-        }
-    };
 
     const handleSync = async () => {
         if (flexToken.trim() || queryId.trim()) {
@@ -96,9 +69,9 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
             queryClient.invalidateQueries({ queryKey: ['trades'] });
             queryClient.invalidateQueries({ queryKey: ['metrics'] });
             queryClient.invalidateQueries({ queryKey: ['last-sync'] });
-            setTestResult({ success: true, message: 'Sync completed successfully.' });
+            setTestResult({ success: true, message: t('accountManager.syncCompleted') });
         } catch {
-            setTestResult({ success: false, message: 'Sync failed. Check credentials.' });
+            setTestResult({ success: false, message: t('accountManager.syncFailed') });
         } finally {
             setIsSyncing(false);
         }
@@ -108,19 +81,19 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
         <div className="mt-2 ml-5 pl-3 border-l-2 border-primary/30 space-y-3 pb-1">
             <p className="text-xs text-muted-foreground">
                 {hasCredentials
-                    ? 'Credentials are saved. Enter new values to update them.'
-                    : 'Enter your IBKR Flex credentials to enable data sync.'}
+                    ? t('accountManager.credentialsSaved')
+                    : t('accountManager.credentialsEmpty')}
             </p>
 
             {/* Flex Token */}
             <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Flex Token</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('accountManager.flexToken')}</label>
                 <div className="relative">
                     <input
                         type={showToken ? 'text' : 'password'}
                         value={flexToken}
                         onChange={(e) => setFlexToken(e.target.value)}
-                        placeholder={hasCredentials ? '•••••••• (leave empty to keep current)' : 'Enter Flex Token'}
+                        placeholder={hasCredentials ? t('accountManager.tokenSavedPlaceholder') : t('accountManager.tokenPlaceholder')}
                         className="w-full text-sm bg-background rounded-md px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary pr-16"
                     />
                     <button
@@ -132,22 +105,22 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
                     </button>
                 </div>
                 <p className="text-[11px] text-muted-foreground/70">
-                    IBKR Portal → Reports → Flex Queries → Token
+                    {t('accountManager.flexTokenHint')}
                 </p>
             </div>
 
             {/* Query ID */}
             <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Query ID</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('accountManager.queryId')}</label>
                 <input
                     type="text"
                     value={queryId}
                     onChange={(e) => setQueryId(e.target.value)}
-                    placeholder={hasCredentials ? '(leave empty to keep current)' : 'Enter Flex Query ID'}
+                    placeholder={hasCredentials ? t('accountManager.queryIdSavedPlaceholder') : t('accountManager.queryIdPlaceholder')}
                     className="w-full text-sm bg-background rounded-md px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <p className="text-[11px] text-muted-foreground/70">
-                    Found in your Flex Query configuration
+                    {t('accountManager.queryIdHint')}
                 </p>
             </div>
 
@@ -164,50 +137,26 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
 
             {/* Actions row */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
-                {/* Save */}
+
                 <Button
                     size="sm"
-                    variant="outline"
-                    onClick={() => saveMutation.mutate()}
-                    disabled={saveMutation.isPending || (!flexToken.trim() && !queryId.trim())}
-                    className="h-7 text-xs gap-1.5"
+                    onClick={handleSync}
+                    disabled={isSyncing || saveMutation.isPending}
+                    className="h-8 px-4 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all font-semibold"
                 >
-                    {saveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                    Save
+                    {isSyncing || saveMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <RefreshCw className="w-4 h-4" />
+                    )}
+                    {saveMutation.isPending ? t('common.saving') : t('accountManager.syncNow')}
                 </Button>
 
-                {/* Test */}
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleTest}
-                    disabled={isTesting || saveMutation.isPending}
-                    className="h-7 text-xs gap-1.5"
-                >
-                    {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <TestTube className="w-3 h-3" />}
-                    Test
-                </Button>
-
-                {/* Sync */}
-                {hasCredentials && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleSync}
-                        disabled={isSyncing || saveMutation.isPending}
-                        className="h-7 text-xs gap-1.5"
-                    >
-                        {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Sync Now
-                    </Button>
-                )}
-
-                {/* Close panel */}
                 <button
                     onClick={onClose}
                     className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                    Close
+                    {t('accountManager.close')}
                 </button>
             </div>
         </div>
@@ -225,6 +174,7 @@ interface AccountRowProps {
 }
 
 function AccountRow({ account, isActive, onSelect, onDelete, isOnlyAccount }: AccountRowProps) {
+    const { t } = useTranslation();
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(account.account_name);
     const [showCredentials, setShowCredentials] = useState(false);
@@ -252,15 +202,12 @@ function AccountRow({ account, isActive, onSelect, onDelete, isOnlyAccount }: Ac
             'rounded-lg border transition-all',
             isActive ? 'border-primary/60 bg-primary/10' : 'border-border bg-card/30'
         )}>
-            {/* Header row */}
             <div className="flex items-center gap-3 p-3">
-                {/* Active dot */}
                 <div className={cn(
                     'w-2.5 h-2.5 rounded-full flex-shrink-0',
                     isActive ? 'bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]' : 'bg-muted'
                 )} />
 
-                {/* Name */}
                 <div className="flex-1 min-w-0">
                     {isEditing ? (
                         <div className="flex items-center gap-1.5">
@@ -296,20 +243,18 @@ function AccountRow({ account, isActive, onSelect, onDelete, isOnlyAccount }: Ac
                             </span>
                             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                                 {account.has_credentials
-                                    ? <><Key className="w-3 h-3 text-amber-500" /> Credentials configured</>
-                                    : <><AlertCircle className="w-3 h-3" /> No credentials — click to set up</>}
+                                    ? <><Key className="w-3 h-3 text-amber-500" /> {t('accountManager.credentialsConfigured')}</>
+                                    : <><AlertCircle className="w-3 h-3" /> {t('accountManager.noCredentials')}</>}
                             </span>
                         </div>
                     )}
                 </div>
 
-                {/* Actions */}
                 {!isEditing && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Toggle credentials panel */}
                         <button
                             onClick={() => setShowCredentials((v) => !v)}
-                            title={showCredentials ? 'Hide credentials' : 'Edit credentials'}
+                            title={showCredentials ? t('accountManager.hideCredentials') : t('accountManager.editCredentials')}
                             className={cn(
                                 'p-1.5 rounded-md transition-all',
                                 showCredentials
@@ -320,44 +265,40 @@ function AccountRow({ account, isActive, onSelect, onDelete, isOnlyAccount }: Ac
                             {showCredentials ? <ChevronDown className="w-3.5 h-3.5" /> : <Key className="w-3.5 h-3.5" />}
                         </button>
 
-                        {/* Rename */}
                         <button
                             onClick={() => { setEditName(account.account_name); setIsEditing(true); }}
-                            title="Rename account"
+                            title={t('accountManager.renameAccount')}
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-all"
                         >
                             <Pencil className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Delete */}
                         {!isOnlyAccount && (
                             <button
                                 onClick={() => onDelete(account.id, account.account_name)}
-                                title="Delete account"
+                                title={t('accountManager.deleteAccount')}
                                 className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
                             </button>
                         )}
 
-                        {/* Select / Active badge */}
                         {!isActive ? (
                             <button
                                 onClick={() => onSelect(account.id, account.account_name)}
                                 className="ml-1 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-all font-medium"
                             >
-                                Select <ChevronRight className="w-3 h-3" />
+                                {t('accountManager.select')} <ChevronRight className="w-3 h-3" />
                             </button>
                         ) : (
                             <span className="ml-1 text-xs px-2.5 py-1.5 rounded-md bg-primary/20 text-primary font-medium border border-primary/40">
-                                Active
+                                {t('accountManager.active')}
                             </span>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* Credentials panel (collapsible) */}
             {showCredentials && (
                 <div className="px-3 pb-3">
                     <CredentialPanel
@@ -379,6 +320,7 @@ interface NewAccountFormProps {
 }
 
 function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
 
     const [name, setName] = useState('');
@@ -396,17 +338,14 @@ function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
         setError(null);
 
         try {
-            // 1. Create the account settings row
             const newAccount = await accountsApi.create({ account_name: trimmedName });
 
-            // 2. If credentials were provided, save them via settings
             if (flexToken.trim() || queryId.trim()) {
                 await settingsApi.update({
                     ...(flexToken.trim() && { flex_token: flexToken.trim() }),
                     ...(queryId.trim() && { query_id: queryId.trim() }),
                 }, newAccount.id);
 
-                // Immediately trigger a sync for the new account and let any error surface to the UI
                 await syncApi.sync(newAccount.id);
             }
 
@@ -420,34 +359,32 @@ function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
 
     return (
         <div className="p-4 rounded-lg border border-dashed border-primary/50 bg-primary/5 space-y-3">
-            <p className="text-sm font-medium text-primary">New Account</p>
+            <p className="text-sm font-medium text-primary">{t('accountManager.newAccount')}</p>
 
-            {/* Account name */}
             <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Account Name *</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('accountManager.accountName')}</label>
                 <input
                     autoFocus
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
-                    placeholder="e.g. Paper Trading, Live Account..."
+                    placeholder={t('accountManager.namePlaceholder')}
                     maxLength={100}
                     className="w-full text-sm bg-background rounded-md px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                 />
             </div>
 
-            {/* Flex Token */}
             <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">
-                    Flex Token <span className="text-muted-foreground/60">(optional — can add later)</span>
+                    {t('accountManager.flexTokenOptional')}
                 </label>
                 <div className="relative">
                     <input
                         type={showToken ? 'text' : 'password'}
                         value={flexToken}
                         onChange={(e) => setFlexToken(e.target.value)}
-                        placeholder="Enter IBKR Flex Token"
+                        placeholder={t('accountManager.flexTokenPlaceholder')}
                         className="w-full text-sm bg-background rounded-md px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary pr-10"
                     />
                     <button
@@ -459,25 +396,23 @@ function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
                     </button>
                 </div>
                 <p className="text-[11px] text-muted-foreground/70">
-                    IBKR Portal → Reports → Flex Queries → Token
+                    {t('accountManager.flexTokenHint')}
                 </p>
             </div>
 
-            {/* Query ID */}
             <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">
-                    Query ID <span className="text-muted-foreground/60">(optional — can add later)</span>
+                    {t('accountManager.queryIdOptional')}
                 </label>
                 <input
                     type="text"
                     value={queryId}
                     onChange={(e) => setQueryId(e.target.value)}
-                    placeholder="Enter Flex Query ID"
+                    placeholder={t('accountManager.queryIdPlaceholder')}
                     className="w-full text-sm bg-background rounded-md px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                 />
             </div>
 
-            {/* Error */}
             {error && (
                 <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded-md">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
@@ -485,7 +420,6 @@ function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
                 </div>
             )}
 
-            {/* Buttons */}
             <div className="flex items-center gap-2 pt-1">
                 <Button
                     size="sm"
@@ -494,11 +428,11 @@ function NewAccountForm({ onCancel, onCreate }: NewAccountFormProps) {
                     className="gap-1.5"
                 >
                     {step === 'saving'
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating...</>
-                        : <><Check className="w-3.5 h-3.5" /> Create Account</>}
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('accountManager.creating')}</>
+                        : <><Check className="w-3.5 h-3.5" /> {t('accountManager.createAccount')}</>}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={onCancel} disabled={step === 'saving'}>
-                    <X className="w-3.5 h-3.5 mr-1" /> Cancel
+                    <X className="w-3.5 h-3.5 mr-1" /> {t('common.cancel')}
                 </Button>
             </div>
         </div>
@@ -512,6 +446,7 @@ interface AccountManagerProps {
 }
 
 export function AccountManager({ onAccountSwitch }: AccountManagerProps) {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [activeId, setActiveId] = useState(getActiveAccountId());
     const [showNewForm, setShowNewForm] = useState(false);
@@ -576,7 +511,6 @@ export function AccountManager({ onAccountSwitch }: AccountManagerProps) {
                 </div>
             )}
 
-            {/* New account form or trigger button */}
             {showNewForm ? (
                 <NewAccountForm
                     onCancel={() => setShowNewForm(false)}
@@ -594,27 +528,27 @@ export function AccountManager({ onAccountSwitch }: AccountManagerProps) {
                     className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
                 >
                     <Plus className="w-4 h-4" />
-                    Add account
+                    {t('accountManager.addAccount')}
                 </button>
             )}
 
             {/* Dialogs */}
             <ConfirmDialog
                 open={!!pendingSwitchAccount}
-                title="Switch account?"
-                description={`All displayed data will reload from "${pendingSwitchAccount?.name}". Your board notes are preserved.`}
-                confirmLabel="Switch"
-                cancelLabel="Cancel"
+                title={t('accountManager.switchTitle')}
+                description={t('accountManager.switchDescription', { name: pendingSwitchAccount?.name ?? '' })}
+                confirmLabel={t('accountManager.switchConfirm')}
+                cancelLabel={t('common.cancel')}
                 variant="default"
                 onConfirm={confirmSwitch}
                 onCancel={() => setPendingSwitchAccount(null)}
             />
             <ConfirmDialog
                 open={!!pendingDeleteAccount}
-                title={`Delete "${pendingDeleteAccount?.name}"?`}
-                description="This will permanently delete this account and all its trades, NAV history, and board items. Your board notes are preserved. This cannot be undone."
-                confirmLabel="Delete Account"
-                cancelLabel="Cancel"
+                title={t('accountManager.deleteTitle', { name: pendingDeleteAccount?.name ?? '' })}
+                description={t('accountManager.deleteDescription')}
+                confirmLabel={t('accountManager.deleteConfirm')}
+                cancelLabel={t('common.cancel')}
                 variant="destructive"
                 onConfirm={confirmDelete}
                 onCancel={() => setPendingDeleteAccount(null)}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p=JSON.parse(require('fs').readFileSync(0,'utf8')).tool_input.file_path||''; const b=p.replace(/\\\\\\\\/g,'/').split('/').pop(); const blocked=/^\\\\.env(\\\\..*)?$|\\\\.encryption_key$|\\\\.db$|trading_journal\\\\.db$/.test(b); if(blocked){console.error('Blocked edit to sensitive file: '+b+'. Edit .env.example instead, or use a migration for DB schema.');process.exit(2);}\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const c=JSON.parse(require('fs').readFileSync(0,'utf8')).tool_input.command||''; if(/\\\\bgit\\\\s+commit.*--no-verify|--no-gpg-sign/.test(c)){console.error('Blocked: --no-verify / --no-gpg-sign not allowed. Fix the hook failure instead.');process.exit(2);}\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p=(JSON.parse(require('fs').readFileSync(0,'utf8')).tool_input.file_path||'').replace(/\\\\\\\\/g,'/'); const isFE=/\\\\/frontend\\\\/src\\\\/.*\\\\.(tsx?|jsx?)$/.test(p); if(!isFE)process.exit(0); const cp=require('child_process'); try{cp.execSync('cd frontend && npx --no-install eslint --fix \\\"'+p.split('frontend/')[1]+'\\\" && npx --no-install prettier --write \\\"'+p.split('frontend/')[1]+'\\\"',{stdio:'inherit'});}catch(e){process.exit(0);}\""
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const p=(JSON.parse(require('fs').readFileSync(0,'utf8')).tool_input.file_path||'').replace(/\\\\\\\\/g,'/'); const isPy=/\\\\/(backend|tj-connector)\\\\/.*\\\\.py$/.test(p); if(!isPy)process.exit(0); const cp=require('child_process'); try{cp.execSync('python -m ruff format \\\"'+p+'\\\" && python -m ruff check --fix \\\"'+p+'\\\"',{stdio:'inherit'});}catch(e){process.exit(0);}\""
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const p=(JSON.parse(require('fs').readFileSync(0,'utf8')).tool_input.file_path||'').replace(/\\\\\\\\/g,'/'); const isIBKR=/(tj-connector\\\\/.*\\\\.py|backend\\\\/ibkr_.*\\\\.py|backend\\\\/routers\\\\/(sync|portfolio|strike_calculator)\\\\.py)$/.test(p); if(!isIBKR)process.exit(0); const fs=require('fs'); try{const src=fs.readFileSync(p,'utf8'); const writeApis=['placeOrder','cancelOrder','modifyOrder','reqGlobalCancel','exerciseOptions','transferPosition']; const hits=writeApis.filter(a=>new RegExp('\\\\\\\\b'+a+'\\\\\\\\b').test(src)); if(hits.length){console.error('\\\\n[IBKR SAFETY] WRITE-API detected in '+p+': '+hits.join(', ')+'. Connector must remain read-only. Remove or justify in PR.');}}catch(e){}\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm ci)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx tsc:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(uvicorn:*)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)"
+    ],
+    "deny": [
+      "Bash(git commit --no-verify:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Read(./.env)",
+      "Read(./*.db)",
+      "Read(./.encryption_key)"
+    ]
+  }
+}

@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { WifiOff, Wifi, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n';
 
 type ConnectionState = 'connected' | 'disconnected' | 'reconnected';
 
@@ -14,6 +15,7 @@ const PING_INTERVAL_MS = 10_000;
 const RECONNECTED_DISPLAY_MS = 3_000;
 
 export function ConnectionStatus() {
+    const { t } = useTranslation();
     const [state, setState] = useState<ConnectionState>('connected');
     const wasDisconnected = useRef(false);
 
@@ -72,14 +74,14 @@ export function ConnectionStatus() {
             {state === 'disconnected' && (
                 <>
                     <WifiOff className="w-4 h-4" />
-                    <span>Connection lost. Retrying...</span>
+                    <span>{t('connection.lost')}</span>
                     <Loader2 className="w-3.5 h-3.5 animate-spin ml-1" />
                 </>
             )}
             {state === 'reconnected' && (
                 <>
                     <Wifi className="w-4 h-4" />
-                    <span>Reconnected</span>
+                    <span>{t('connection.reconnected')}</span>
                 </>
             )}
         </div>

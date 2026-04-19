@@ -1,0 +1,480 @@
+# Instrucciones para IA — Transformación de Trading Journal Pro a Arquitectura Híbrida
+
+## TU ROL Y PRINCIPIO GUÍA
+
+Eres un arquitecto de software implementando una transformación de una app de escritorio (PyInstaller + pywebview) a una arquitectura híbrida. Tu trabajo es atómico: cada cambio que hagas debe dejar el proyecto en un estado funcional. Never romper algo sin arreglarlo en el mismo commit de trabajo.
+
+**Principio fundamental**: El código de negocio (lógica de trades, métricas, sync de IBKR, modelos de datos) NO cambia. Solo cambia la capa de infraestructura que envuelve ese código.
+
+---
+
+## CONTEXTO COMPLETO DEL PROYECTO
+
+### ¿Qué es este proyecto?
+**Trading Journal Pro** — aplicación para traders que usan Interactive Brokers (IBKR). Permite:
+- Registrar y analizar trades históricos sincronizados desde IBKR vía Flex Query API
+- Ver métricas de rendimiento (P&L, win rate, equity curve, heatmap)
+- Gestionar portfolio de posiciones en tiempo real (requiere TWS/IB Gateway abierto)
+- Calcular strikes de opciones con volatilidad histórica en tiempo real (requiere TWS)
+- Gestionar múltiples cuentas de trading
+
+### Stack tecnológico actual
+```
+Backend:   FastAPI (Python) + SQLite + SQLAlchemy async
+Frontend:  React 18 + TypeScript + Vite + TanStack Query
+Empaque:   PyInstaller + pywebview (ESTO ES EL PROBLEMA)
+DB:        SQLite local (un archivo por máquina del usuario)
+Crypto:    Fernet (encriptación de Flex Token IBKR)
+Live data: ib_insync (socket a TWS en localhost:7497)
+```
+
+### Estructura de directorios
+```
+TradingJournal/
+├── backend/
+│   ├── main.py              ← FastAPI app, sirve también el frontend estático
+│   ├── database.py          ← SQLAlchemy engine, configuración SQLite
+│   ├── models.py            ← ORM: Trade, AccountEquity, Settings, AssetBoardItem, BoardNote
+│   ├── schemas.py           ← Pydantic schemas de request/response
+│   ├── crypto.py            ← Fernet encryption para Flex Token
+│   ├── migrations.py        ← Migraciones de schema versioned
+│   ├── ibkr_positions.py    ← ib_insync: posiciones abiertas en tiempo real
+│   ├── fetch_live_portfolio.py ← ib_insync: portfolio live completo
+│   ├── strike_calculator.py ← ib_insync: precio + IV + cálculo de strikes
+│   └── routers/
+│       ├── accounts.py      ← CRUD de cuentas de trading
+│       ├── trades.py        ← CRUD de trades
+│       ├── metrics.py       ← Cálculos de métricas
+│       ├── sync.py          ← IBKR Flex Query sync (HTTPS a IBKR)
+│       ├── settings.py      ← Configuración + credenciales IBKR
+│       ├── assets.py        ← Portfolio boards + sync de posiciones live
+│       ├── portfolio.py     ← Live portfolio endpoint
+│       └── strike_calculator.py ← Endpoint del calculador de strikes
+├── frontend/
+│   └── src/
+│       ├── App.tsx          ← Root: routing entre vistas, sync mutation, onboarding
+│       ├── lib/
+│       │   ├── api.ts       ← Cliente API centralizado, inyecta X-Account-ID automáticamente
+│       │   ├── types.ts     ← TypeScript interfaces
+│       │   ├── i18n.tsx     ← Internacionalización ES/EN
+│       │   └── utils.ts
+│       ├── hooks/
+│       │   ├── usePersistedState.ts  ← useState que persiste en localStorage
+│       │   └── useTheme.ts
+│       └── components/
+│           ├── Dashboard/   ← Todas las vistas principales
+│           ├── Portfolio/   ← Vista de portfolio live
+│           └── ui/          ← Componentes base (Toast, ConnectionStatus, etc.)
+├── run_app.py               ← Entry point actual: arranca FastAPI + abre ventana pywebview
+├── docker-compose.yml       ← Ya configurado, no completamente funcional aún
+└── requirements.txt         ← Incluye pywebview, pyinstaller, ib_insync
+```
+
+### El problema que estás resolviendo
+`run_app.py` usa `pywebview` para abrir una ventana nativa que renderiza `http://127.0.0.1:8000`. Este enfoque falla en MacOS (Gatekeeper, certificados SSL, Cocoa/WebKit incompatibilidades) y Windows (antivirus, DLLs, WebView2 no instalado). La solución NO es arreglar pywebview — es eliminarlo del flujo principal.
+
+### Restricciones de arquitectura que DEBES respetar
+1. **No mezcles lógica de negocio con infraestructura**. Los archivos en `backend/routers/` son lógica de negocio — no los toques a menos que la instrucción lo requiera explícitamente.
+2. **Inmutabilidad de datos**: Los modelos SQLAlchemy en `models.py` son la fuente de verdad. Si agregas columnas, hazlo vía migraciones, no re-creando tablas.
+3. **El cliente API del frontend** (`lib/api.ts`) es el único punto de contacto con el backend. No hagas fetches directos desde componentes.
+4. **Early return pattern**: Las validaciones van primero, el camino feliz al final.
+5. **No silencies errores**: Si un try/except no puede manejar el error, lo propaga.
+
+---
+
+## ARQUITECTURA OBJETIVO
+
+La transformación produce DOS productos separados:
+
+### Producto 1: Web App (servidor en la nube)
+El backend FastAPI + frontend React corren en un servidor accesible desde cualquier navegador. Cada usuario tiene su propia cuenta con datos aislados.
+
+```
+Usuario → navegador → https://app.tudominio.com → FastAPI → PostgreSQL
+```
+
+**Qué resuelve**: Todos los problemas de compatibilidad cross-platform. Tú actualizas el servidor, todos los usuarios reciben la nueva versión sin hacer nada.
+
+**Limitación**: No puede conectarse a TWS/IB Gateway que corre en la computadora del usuario, porque `127.0.0.1` desde el servidor apunta al servidor, no a la máquina del usuario.
+
+### Producto 2: TJ Connector (instalable local pequeño ~20MB)
+Un proceso Python minimalista sin UI que corre en el background de la computadora del usuario. Actúa como puente entre TWS local y la web app.
+
+```
+Web App → fetch('http://localhost:8765/...') → TJ Connector → TWS en 127.0.0.1:7497
+```
+
+**Qué resuelve**: Habilita datos en tiempo real (live portfolio, strike calculator automático) sin comprometer la privacidad. Los datos live NUNCA pasan por el servidor.
+
+**Qué hace el Connector**:
+1. Al iniciarse: lanza el navegador predeterminado apuntando a la web app
+2. Expone una micro-API en `http://127.0.0.1:8765` (solo acepta requests locales)
+3. Muestra un ícono en la barra del sistema (system tray)
+4. Conecta a TWS vía ib_insync cuando hay requests de datos live
+
+**Cómo la web app detecta el Connector**:
+```typescript
+// En el frontend, al cargar:
+const connectorActive = await fetch('http://localhost:8765/status', {
+  signal: AbortSignal.timeout(800)
+}).then(r => r.ok).catch(() => false);
+
+// Si connectorActive === true → llama a localhost:8765 para datos live
+// Si connectorActive === false → muestra UI de "Descarga TJ Connector"
+```
+
+---
+
+## FASE 1 — ELIMINACIÓN DE PYWEBVIEW
+
+**Por qué**: Pywebview es la causa de todos los problemas de compatibilidad. El backend FastAPI ya sirve el frontend como archivos estáticos y puede ser accedido directamente desde cualquier navegador. Pywebview solo añadía una ventana nativa encima, que es exactamente lo que rompe en cada plataforma.
+
+**Qué cambiar**:
+
+### `run_app.py` — Reescribir completamente
+Eliminar toda referencia a `webview`. El nuevo `run_app.py` debe:
+- Arrancar FastAPI + uvicorn en un thread background (esta parte ya funciona)
+- Esperar a que el backend esté listo en `http://127.0.0.1:8000/api/health`
+- Abrir el navegador predeterminado del usuario en esa URL usando `webbrowser.open()`
+- Mantener el proceso vivo mientras el servidor corre (loop o `input()`)
+- Conservar el logging a archivo (ya funciona, no cambiar)
+- Conservar `hide_console_window()` en Windows (ya funciona)
+
+```python
+# Patrón correcto del nuevo run_app.py:
+import webbrowser
+
+def start_app():
+    # 1. Arrancar backend en thread (igual que ahora)
+    backend_thread = threading.Thread(target=start_backend, daemon=True)
+    backend_thread.start()
+    
+    # 2. Esperar que esté listo (igual que ahora)
+    if not wait_for_backend():
+        return
+    
+    # 3. Abrir navegador (REEMPLAZA webview.create_window + webview.start)
+    webbrowser.open("http://127.0.0.1:8000")
+    
+    # 4. Mantener el proceso vivo
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down")
+```
+
+### `requirements.txt` — Eliminar pywebview
+Quitar la línea `pywebview==6.1` y cualquier variante. NO tocar el resto de dependencias.
+
+### `TradingJournalPro.spec` — Eliminar imports de pywebview
+En el spec de PyInstaller, eliminar cualquier `hiddenimports` o `datas` relacionados con `webview`, `QtWebEngine`, o similares. Esto reduce significativamente el tamaño del ejecutable.
+
+**Verificación de Fase 1**:
+- `python run_app.py` en desarrollo arranca el servidor y abre el navegador en `localhost:8000`
+- La app funciona exactamente igual que antes, pero en el navegador en vez de ventana nativa
+- No hay imports de `webview` en ningún archivo
+
+---
+
+## FASE 2 — SISTEMA DE AUTENTICACIÓN
+
+**Por qué**: En el servidor, múltiples usuarios comparten la misma instancia del backend. Sin autenticación, cualquiera vería los datos de cualquiera. El sistema actual usa `X-Account-ID` para separar cuentas dentro de un mismo usuario — eso se mantiene intacto. Solo se agrega una capa de usuario encima.
+
+**Modelo de datos a agregar**:
+
+```python
+# En models.py — agregar NUEVO modelo, no modificar los existentes
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)  # bcrypt
+    created_at = Column(DateTime, server_default=func.now())
+    is_active = Column(Boolean, default=True)
+```
+
+**Columna `user_id` en todas las tablas existentes**:
+```python
+# En migrations.py — agregar como nueva migración (no modificar las existentes)
+# La columna user_id va en: settings, trades, account_equity, asset_board_items, board_notes
+# DEFAULT 'system' para registros existentes (migración no destructiva)
+ALTER TABLE trades ADD COLUMN user_id VARCHAR(36) DEFAULT 'system';
+ALTER TABLE settings ADD COLUMN user_id VARCHAR(36) DEFAULT 'system';
+# ... mismo patrón para todas las tablas
+```
+
+**Endpoints de autenticación nuevos** — crear `backend/routers/auth.py`:
+```
+POST /api/auth/register  → { email, password } → { access_token, refresh_token, user }
+POST /api/auth/login     → { email, password } → { access_token, refresh_token, user }
+POST /api/auth/refresh   → { refresh_token }   → { access_token }
+GET  /api/auth/me        → (token en header)   → { id, email, created_at }
+```
+
+**JWT**: Usar `python-jose[cryptography]` + `passlib[bcrypt]`. El `access_token` tiene TTL de 15 minutos. El `refresh_token` tiene TTL de 7 días.
+
+**Middleware de autenticación**:
+```python
+# En main.py — agregar middleware que extrae user_id del JWT
+# y lo inyecta en el request state para que los routers lo usen
+# Las rutas /api/auth/* están EXENTAS del middleware
+# La ruta /api/health está EXENTA del middleware
+```
+
+**Actualizar todos los routers existentes**:
+- Cada router recibe `user_id: str` del request state (inyectado por el middleware)
+- Todos los queries a DB agregan `.where(Model.user_id == user_id)` 
+- NO cambiar la lógica de `X-Account-ID` — sigue funcionando igual, solo se agrega el filtro de user_id encima
+
+**Frontend — pantalla de login/registro**:
+- Antes de mostrar la app, verificar si hay `access_token` en localStorage
+- Si no hay → mostrar pantalla de Login/Registro (nueva, no reemplaza al Onboarding existente)
+- Si hay → validar con `GET /api/auth/me` → si válido, mostrar app normal
+- El `fetchApi` en `lib/api.ts` agrega `Authorization: Bearer <token>` a todos los requests
+- Si el servidor responde 401 → limpiar token → redirigir a login
+
+**Verificación de Fase 2**:
+- Dos usuarios distintos pueden registrarse, cada uno ve solo sus datos
+- El sistema multi-cuenta (X-Account-ID) sigue funcionando dentro de cada usuario
+- El onboarding existente sigue apareciendo para usuarios sin trades ni credenciales
+
+---
+
+## FASE 3 — MIGRACIÓN A POSTGRESQL Y DEPLOY
+
+**Por qué**: SQLite es un archivo local — no funciona en un servidor donde múltiples requests concurrentes de usuarios distintos llegan al mismo tiempo. PostgreSQL maneja concurrencia correctamente.
+
+**Cambio en `database.py`**:
+```python
+# Antes (SQLite):
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DB_PATH}")
+
+# Después (PostgreSQL en producción, SQLite en desarrollo):
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    f"sqlite+aiosqlite:///{DB_PATH}"  # fallback para desarrollo local
+)
+# SQLAlchemy soporta ambos dialectos sin cambiar ningún otro código
+# Solo cambia la URL de conexión vía variable de entorno
+```
+
+**Variables de entorno requeridas en el servidor**:
+```bash
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/trading_journal
+JWT_SECRET=<string aleatorio de 64 caracteres>
+FERNET_KEY=<key generada con Fernet.generate_key()>
+ENVIRONMENT=production
+```
+
+**Dockerfile del backend** (ya existe en `backend/Dockerfile`, verificar y ajustar):
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**Deploy en Railway.app**:
+1. Conectar repositorio GitHub a Railway
+2. Railway detecta el `docker-compose.yml` automáticamente
+3. Agregar servicio PostgreSQL desde el dashboard de Railway
+4. Configurar las variables de entorno listadas arriba
+5. Railway provee HTTPS automáticamente
+
+**Ajuste de CORS en `main.py`** para producción:
+```python
+# En producción, restringir origins al dominio real
+# Usar variable de entorno:
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, ...)
+```
+
+**Verificación de Fase 3**:
+- La web app es accesible en `https://app.tudominio.com`
+- Funciona desde Chrome en Mac, Safari en Mac, Chrome en Windows, Edge en Windows
+- El sync de IBKR Flex funciona correctamente (es HTTPS, no depende de nada local)
+- Los datos persisten entre sesiones
+
+---
+
+## FASE 4 — TJ CONNECTOR (PROYECTO SEPARADO)
+
+**Por qué**: El Connector es un producto independiente. Vive en un directorio separado, tiene su propio `requirements.txt` y su propio spec de PyInstaller. Comparte lógica con el backend principal pero no comparte código en tiempo de ejecución.
+
+**Crear directorio**: `tj-connector/` en la raíz del repositorio (al mismo nivel que `backend/` y `frontend/`)
+
+**Estructura del Connector**:
+```
+tj-connector/
+├── main.py              ← Entry point: system tray + lanza navegador + arranca micro-API
+├── api.py               ← FastAPI micro-servidor en localhost:8765
+├── ibkr_bridge.py       ← Lógica de conexión a TWS (portada de ibkr_positions.py y fetch_live_portfolio.py)
+├── strike_engine.py     ← Lógica de strike calculator (portada de strike_calculator.py)
+├── requirements.txt     ← fastapi, uvicorn, ib_insync, pystray, pillow
+└── connector.spec       ← PyInstaller spec (SIN pywebview, SIN el frontend React)
+```
+
+**`api.py` — Endpoints que expone el Connector**:
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# CRÍTICO: Solo acepta requests del dominio de la web app
+# Esto previene que otras páginas web accedan al TWS del usuario
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://app.tudominio.com", "http://localhost:5173"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+@app.get("/status")
+async def status():
+    """Health check — la web app usa esto para detectar si el Connector está activo."""
+    return {"running": True, "version": "1.0.0", "tws_port": 7497}
+
+@app.get("/portfolio")
+async def get_portfolio():
+    """Posiciones y summary del portfolio en tiempo real desde TWS."""
+    return await ibkr_bridge.fetch_portfolio_data(port=7497)
+
+@app.get("/positions")
+async def get_positions():
+    """Posiciones abiertas + stop orders detectados."""
+    return await ibkr_bridge.fetch_open_positions(port=7497)
+
+@app.get("/strikes/{symbol}")
+async def get_strikes(symbol: str):
+    """Strike calculator con precio e IV desde TWS."""
+    result = await strike_engine.calculate_strikes(symbol, port=7497)
+    return result
+```
+
+**`main.py` del Connector**:
+```python
+import webbrowser
+import threading
+import uvicorn
+import pystray
+from PIL import Image
+
+WEB_APP_URL = "https://app.tudominio.com"
+CONNECTOR_PORT = 8765
+
+def start_api_server():
+    uvicorn.run(
+        "api:app",
+        host="127.0.0.1",  # SOLO localhost, nunca 0.0.0.0
+        port=CONNECTOR_PORT,
+        log_level="error"
+    )
+
+def create_tray_icon():
+    # Ícono en system tray (Mac + Windows)
+    icon = pystray.Icon(
+        "TJ Connector",
+        icon=Image.open("icon.png"),
+        menu=pystray.Menu(
+            pystray.MenuItem("Abrir Trading Journal", lambda: webbrowser.open(WEB_APP_URL)),
+            pystray.MenuItem("Salir", lambda: icon.stop()),
+        )
+    )
+    return icon
+
+def main():
+    # 1. Arrancar micro-API en background
+    api_thread = threading.Thread(target=start_api_server, daemon=True)
+    api_thread.start()
+    
+    # 2. Abrir el navegador automáticamente
+    webbrowser.open(WEB_APP_URL)
+    
+    # 3. Mostrar ícono en system tray (esto bloquea hasta que el usuario sale)
+    icon = create_tray_icon()
+    icon.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+**Actualización del frontend para consumir el Connector**:
+
+Agregar en `frontend/src/lib/connector.ts` (archivo nuevo):
+```typescript
+const CONNECTOR_URL = 'http://localhost:8765';
+
+export async function isConnectorRunning(): Promise<boolean> {
+  try {
+    const res = await fetch(`${CONNECTOR_URL}/status`, {
+      signal: AbortSignal.timeout(800),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export const connectorApi = {
+  getPortfolio: () => fetch(`${CONNECTOR_URL}/portfolio`).then(r => r.json()),
+  getPositions: () => fetch(`${CONNECTOR_URL}/positions`).then(r => r.json()),
+  getStrikes: (symbol: string) => fetch(`${CONNECTOR_URL}/strikes/${symbol}`).then(r => r.json()),
+};
+```
+
+Actualizar `portfolio.py` (router del backend principal) y las secciones de strike calculator en el frontend para usar `connectorApi` cuando `isConnectorRunning()` retorna `true`, y mostrar UI de "Descarga TJ Connector" cuando retorna `false`.
+
+**Empaquetado del Connector con PyInstaller**:
+```
+pyinstaller connector.spec
+# Produce: dist/TJ_Connector.exe (Windows) o dist/TJ_Connector.app (Mac)
+# Tamaño esperado: 20-35MB (sin pywebview, sin React, sin frontend)
+```
+
+**Verificación de Fase 4**:
+- Usuario inicia el Connector → se abre el navegador en la web app automáticamente
+- El ícono del tray aparece en Mac (barra de menú) y Windows (system tray)
+- Con TWS abierto, el live portfolio muestra datos reales
+- Sin TWS, el Connector muestra error claro en su ícono
+- La web app detecta correctamente si el Connector está o no activo
+
+---
+
+## REGLAS QUE NO SE NEGOCIAN
+
+1. **Nunca elimines una columna de la DB** sin una migración que preserve los datos existentes.
+2. **Nunca hagas fetch directo desde componentes React** — siempre a través de `lib/api.ts` o `lib/connector.ts`.
+3. **El Connector solo escucha en `127.0.0.1`**, nunca en `0.0.0.0`. Es un requisito de seguridad.
+4. **Las migraciones son aditivas**: agregar columnas con DEFAULT, nunca reescribir tablas.
+5. **Cada fase debe dejar el proyecto funcional**: si estás en Fase 2 y algo de Fase 1 deja de funcionar, debes repararlo antes de continuar.
+6. **No instales dependencias no mencionadas** sin justificar el porqué en un comentario del código.
+7. **El sistema multi-cuenta (X-Account-ID) no se toca**. Es funcional y probado.
+
+---
+
+## ARCHIVOS QUE NO DEBES MODIFICAR SIN JUSTIFICACIÓN EXPLÍCITA
+
+- `backend/routers/trades.py` — lógica de negocio de trades, funciona correctamente
+- `backend/routers/metrics.py` — cálculos de métricas, funciona correctamente
+- `backend/routers/sync.py` — sync de IBKR Flex, funciona correctamente (es HTTPS puro, no socket)
+- `frontend/src/components/` — todos los componentes de UI, no cambian
+- `frontend/src/lib/i18n.tsx` — sistema de traducciones, no cambia
+- `backend/models.py` — solo agregar columnas vía migraciones, no reescribir modelos
+- `backend/migrations.py` — solo agregar nuevas migraciones al final, nunca modificar las existentes
+
+---
+
+## GLOSARIO TÉCNICO
+
+- **Flex Token**: Token de IBKR que permite descargar historial de trades vía HTTPS. Solo lectura, no permite operar. Se encripta con Fernet antes de guardarse.
+- **Query ID**: ID de la consulta Flex configurada en IBKR. Se usa junto con el Flex Token.
+- **ib_insync**: Librería Python que conecta a TWS/IB Gateway vía socket en localhost:7497. Requiere que TWS esté corriendo en la misma red local.
+- **TWS**: Trader Workstation — la aplicación de escritorio de IBKR.
+- **IB Gateway**: Versión ligera de TWS, solo API sin interfaz completa.
+- **X-Account-ID**: Header HTTP custom que identifica la cuenta de trading activa. Ya implementado en todos los endpoints.
+- **System Tray**: Área de iconos junto al reloj del sistema operativo (Mac: barra de menú superior. Windows: esquina inferior derecha).

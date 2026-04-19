@@ -1,7 +1,7 @@
 /**
  * Main App component - Root of the Trading Journal application.
  */
-import { useState, Component, ReactNode } from 'react';
+import { useState, useEffect, Component, ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { Sidebar } from '@/components/Dashboard/Sidebar';
@@ -11,8 +11,10 @@ import { StrategyStats } from '@/components/Dashboard/StrategyStats';
 import { Settings } from '@/components/Dashboard/Settings';
 import { AssetsPage } from '@/components/Dashboard/AssetsPage';
 import { StrikeCalculator } from '@/components/Dashboard/StrikeCalculator';
+import { LoginPage } from '@/components/Auth/LoginPage';
 import { useTheme } from '@/hooks/useTheme';
-import { settingsApi, syncApi, tradesApi, getActiveAccountId } from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
+import { settingsApi, syncApi, tradesApi, getActiveAccountId, getAccessToken, authApi } from '@/lib/api';
 import { Portfolio } from '@/components/Portfolio/Portfolio';
 import { Onboarding } from '@/components/Dashboard/Onboarding';
 import {
@@ -36,6 +38,24 @@ interface ErrorBoundaryState {
     error: Error | null;
 }
 
+function ErrorFallback({ error }: { error: Error | null }) {
+    const { t } = useTranslation();
+    return (
+        <div className="p-6 text-center">
+            <h2 className="text-xl font-bold text-destructive mb-2">{t('app.errorBoundary.title')}</h2>
+            <p className="text-muted-foreground text-sm mb-4">
+                {error?.message || 'Unknown error'}
+            </p>
+            <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
+            >
+                {t('app.errorBoundary.reload')}
+            </button>
+        </div>
+    );
+}
+
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     constructor(props: ErrorBoundaryProps) {
         super(props);
@@ -48,20 +68,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
     render() {
         if (this.state.hasError) {
-            return this.props.fallback || (
-                <div className="p-6 text-center">
-                    <h2 className="text-xl font-bold text-destructive mb-2">Something went wrong</h2>
-                    <p className="text-muted-foreground text-sm mb-4">
-                        {this.state.error?.message || 'Unknown error'}
-                    </p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
-                    >
-                        Reload App
-                    </button>
-                </div>
-            );
+            return this.props.fallback || <ErrorFallback error={this.state.error} />;
         }
         return this.props.children;
     }
@@ -88,7 +95,29 @@ function App() {
         variant: 'default',
     });
 
+    // ─── Auth gate ────────────────────────────────────────────────────────
+    // isAuthenticated starts as true if a token exists in localStorage,
+    // then is validated lazily by any 401 response (handled in api.ts).
+    // In local mode (no server), the backend returns 401 only for /api/auth routes
+    // which are exempt, so isAuthenticated remains true (backward compatible).
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!getAccessToken());
+
+    // On mount: if we have a token, verify it's still valid against /api/auth/me
+    useEffect(() => {
+        const token = getAccessToken();
+        if (!token) return; // no token — login screen will handle it
+        authApi.me().catch(() => {
+            // Token is invalid or expired and refresh also failed (handled in fetchApi)
+            setIsAuthenticated(false);
+        });
+    }, []);
+
+    if (!isAuthenticated) {
+        return <LoginPage onAuthenticated={() => setIsAuthenticated(true)} />;
+    }
+
     const { theme, setTheme } = useTheme();
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
 
     // --- Onboarding logic ---
@@ -99,30 +128,35 @@ function App() {
     const [onboardingDismissed, setOnboardingDismissed] = useState(
         () => localStorage.getItem('tj_onboardingComplete') === 'true'
     );
+    const [onboardingForced, setOnboardingForced] = useState(
+        () => localStorage.getItem('tj_onboardingForced') === 'true'
+    );
     const [onboardingLocked, setOnboardingLocked] = useState(false);
 
     const { data: settingsData, isLoading: settingsLoading } = useQuery({
         queryKey: ['settings', 'onboarding-check'],
         queryFn: settingsApi.get,
-        enabled: !onboardingDismissed && !onboardingLocked,
+        enabled: !onboardingDismissed && !onboardingLocked && !onboardingForced,
         staleTime: Infinity,
     });
 
     const { data: tradesData, isLoading: tradesLoading } = useQuery({
         queryKey: ['trades', 'onboarding-check'],
         queryFn: () => tradesApi.getAll({ page: 1, page_size: 1 }),
-        enabled: !onboardingDismissed && !onboardingLocked,
+        enabled: !onboardingDismissed && !onboardingLocked && !onboardingForced,
         staleTime: Infinity,
     });
 
     // Once we determine the user needs onboarding, lock it visible
     const shouldShowOnboarding =
-        !onboardingDismissed &&
-        !settingsLoading &&
-        !tradesLoading &&
-        settingsData &&
-        !settingsData.has_credentials &&
-        (tradesData?.total ?? 0) === 0;
+        onboardingForced || (
+            !onboardingDismissed &&
+            !settingsLoading &&
+            !tradesLoading &&
+            settingsData &&
+            !settingsData.has_credentials &&
+            (tradesData?.total ?? 0) === 0
+        );
 
     if (shouldShowOnboarding && !onboardingLocked) {
         setOnboardingLocked(true);
@@ -136,17 +170,17 @@ function App() {
         onSuccess: (data) => {
             queryClient.invalidateQueries();
             if (data.success) {
-                showToast('Sync Complete', data.message, 'success');
+                showToast(t('app.toast.syncComplete'), data.message, 'success');
             } else {
-                showToast('Sync Failed', data.message, 'destructive');
+                showToast(t('app.toast.syncFailed'), data.message, 'destructive');
             }
         },
         onError: (error: Error) => {
             // If no credentials, suggest going to settings
             if (error.message.includes('No IBKR credentials')) {
-                showToast('Setup Required', 'Please configure IBKR credentials in Settings', 'destructive');
+                showToast(t('app.toast.setupRequired'), t('app.toast.setupMessage'), 'destructive');
             } else {
-                showToast('Sync Error', error.message, 'destructive');
+                showToast(t('app.toast.syncError'), error.message, 'destructive');
             }
         },
     });
@@ -175,6 +209,8 @@ function App() {
                     onComplete={() => {
                         setOnboardingLocked(false);
                         setOnboardingDismissed(true);
+                        setOnboardingForced(false);
+                        localStorage.removeItem('tj_onboardingForced');
                         queryClient.invalidateQueries();
                     }}
                 />
@@ -202,7 +238,7 @@ function App() {
                     {currentView === 'trades' && (
                         <div className="p-6 animate-fade-in">
                             <div className="mb-6">
-                                <h1 className="text-2xl font-bold">Trade History</h1>
+                                <h1 className="text-2xl font-bold">{t('app.views.tradeHistory')}</h1>
                             </div>
                             <TradesTable />
                         </div>
@@ -210,7 +246,7 @@ function App() {
                     {currentView === 'strategies' && (
                         <div className="p-6 animate-fade-in">
                             <div className="mb-6">
-                                <h1 className="text-2xl font-bold">Strategy Performance</h1>
+                                <h1 className="text-2xl font-bold">{t('app.views.strategyPerformance')}</h1>
                             </div>
                             <StrategyStats />
                         </div>
@@ -218,9 +254,9 @@ function App() {
                     {currentView === 'settings' && (
                         <div className="p-6 animate-fade-in">
                             <div className="mb-6">
-                                <h1 className="text-2xl font-bold">Settings</h1>
+                                <h1 className="text-2xl font-bold">{t('app.views.settings')}</h1>
                                 <p className="text-sm text-muted-foreground">
-                                    Configure IBKR integration, account preferences, and appearance
+                                    {t('app.views.settingsDescription')}
                                 </p>
                             </div>
                             <Settings
@@ -242,7 +278,7 @@ function App() {
                     {/* StrikeCalculator: always mounted to preserve state; hidden via CSS when inactive */}
                     <div className={currentView === 'strike-calculator' ? 'p-6 animate-fade-in' : 'hidden'}>
                         <div className="mb-6">
-                            <h1 className="text-2xl font-bold">Strike Calculator</h1>
+                            <h1 className="text-2xl font-bold">{t('app.views.strikeCalculator')}</h1>
                         </div>
                         <StrikeCalculator isActive={currentView === 'strike-calculator'} />
                     </div>

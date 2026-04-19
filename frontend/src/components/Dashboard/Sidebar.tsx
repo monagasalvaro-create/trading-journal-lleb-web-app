@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { syncApi, accountsApi, getActiveAccountId, setActiveAccountId } from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
 import {
     LayoutDashboard,
     Table2,
@@ -10,7 +11,6 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
-    TrendingUp,
     Calculator,
     PieChart,
     Clock,
@@ -18,21 +18,7 @@ import {
     ChevronUp,
     Check,
 } from 'lucide-react';
-
-function formatTimeAgo(dateString: string): string {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffMs = now.getTime() - past.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-
-    if (diffSec < 60) return 'just now';
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHrs = Math.floor(diffMin / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    const diffDays = Math.floor(diffHrs / 24);
-    return `${diffDays}d ago`;
-}
+import logo from '@/assets/logo.png';
 
 interface SidebarProps {
     collapsed: boolean;
@@ -49,6 +35,7 @@ export function Sidebar({
     onViewChange,
     onAccountSwitch,
 }: SidebarProps) {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [timeAgoText, setTimeAgoText] = useState<string | null>(null);
     const [showAccountPicker, setShowAccountPicker] = useState(false);
@@ -71,6 +58,21 @@ export function Sidebar({
     const activeAccount = accounts.find((a) => a.id === activeAccountId);
     const activeAccountName = activeAccount?.account_name ?? null;
 
+    const formatTimeAgo = (dateString: string): string => {
+        const now = new Date();
+        const past = new Date(dateString);
+        const diffMs = now.getTime() - past.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+
+        if (diffSec < 60) return t('sidebar.timeAgo.justNow');
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return t('sidebar.timeAgo.minutesAgo', { n: diffMin });
+        const diffHrs = Math.floor(diffMin / 60);
+        if (diffHrs < 24) return t('sidebar.timeAgo.hoursAgo', { n: diffHrs });
+        const diffDays = Math.floor(diffHrs / 24);
+        return t('sidebar.timeAgo.daysAgo', { n: diffDays });
+    };
+
     // Update the relative time text every 30s
     useEffect(() => {
         const update = () => {
@@ -83,7 +85,7 @@ export function Sidebar({
         update();
         const interval = setInterval(update, 30_000);
         return () => clearInterval(interval);
-    }, [lastSyncData]);
+    }, [lastSyncData, t]);
 
     // Close picker on outside click
     useEffect(() => {
@@ -109,13 +111,13 @@ export function Sidebar({
     };
 
     const navItems = [
-        { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'portfolio' as const, label: 'Portfolio', icon: PieChart },
-        { id: 'assets' as const, label: 'Portfolio Boards', icon: Table2 },
-        { id: 'trades' as const, label: 'Trades', icon: Table2 },
-        { id: 'strategies' as const, label: 'Performance Analysis', icon: BarChart3 },
-        { id: 'strike-calculator' as const, label: 'Strike Calculator', icon: Calculator },
-        { id: 'settings' as const, label: 'Settings', icon: Settings },
+        { id: 'dashboard' as const, label: t('sidebar.nav.dashboard'), icon: LayoutDashboard },
+        { id: 'portfolio' as const, label: t('sidebar.nav.portfolio'), icon: PieChart },
+        { id: 'assets' as const, label: t('sidebar.nav.portfolioBoards'), icon: Table2 },
+        { id: 'trades' as const, label: t('sidebar.nav.trades'), icon: Table2 },
+        { id: 'strategies' as const, label: t('sidebar.nav.performanceAnalysis'), icon: BarChart3 },
+        { id: 'strike-calculator' as const, label: t('sidebar.nav.strikeCalculator'), icon: Calculator },
+        { id: 'settings' as const, label: t('sidebar.nav.settings'), icon: Settings },
     ];
 
     const hasMultipleAccounts = accounts.length > 1;
@@ -130,13 +132,13 @@ export function Sidebar({
             {/* Logo */}
             <div className="p-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-primary-foreground" />
+                    <div className="w-8 h-8 flex items-center justify-center">
+                        <img src={logo} alt="TJ Logo" className="w-full h-full object-contain" />
                     </div>
                     {!collapsed && (
                         <div className="animate-fade-in">
-                            <h1 className="font-bold text-sm">Trading Journal</h1>
-                            <p className="text-[10px] text-muted-foreground">Pro Edition</p>
+                            <h1 className="font-bold text-sm">{t('sidebar.appTitle')}</h1>
+                            <p className="text-[10px] text-muted-foreground">{t('sidebar.appSubtitle')}</p>
                         </div>
                     )}
                 </div>
@@ -182,7 +184,7 @@ export function Sidebar({
                                 !hasMultipleAccounts && 'cursor-default',
                                 collapsed && 'justify-center px-0 border-0 bg-transparent'
                             )}
-                            title={hasMultipleAccounts ? 'Switch account' : `Active account: ${activeAccountName}`}
+                            title={hasMultipleAccounts ? t('sidebar.switchAccount') : `Active account: ${activeAccountName}`}
                         >
                             <CircleUser className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
                             {!collapsed && (
@@ -214,7 +216,7 @@ export function Sidebar({
                             >
                                 <div className="px-3 py-2 border-b border-border/50">
                                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                        Switch Account
+                                        {t('sidebar.switchAccount')}
                                     </p>
                                 </div>
                                 <div className="py-1 max-h-48 overflow-y-auto">
@@ -258,7 +260,7 @@ export function Sidebar({
                             'flex items-center gap-2 px-3 py-1.5 text-muted-foreground',
                             collapsed && 'justify-center px-0'
                         )}
-                        title={`Last sync: ${lastSyncData?.last_sync ?? 'N/A'}`}
+                        title={`${t('sidebar.lastSync')} ${lastSyncData?.last_sync ?? 'N/A'}`}
                     >
                         <Clock className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/60" />
                         {!collapsed && (
@@ -278,7 +280,7 @@ export function Sidebar({
                     )}
                 >
                     {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-                    {!collapsed && <span className="text-sm">Collapse</span>}
+                    {!collapsed && <span className="text-sm">{t('sidebar.collapse')}</span>}
                 </button>
             </div>
         </aside>

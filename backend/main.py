@@ -13,6 +13,8 @@ import logging
 
 from database import init_db
 from routers import trades, metrics, sync, settings, assets, strike_calculator, portfolio, accounts
+from routers import auth as auth_router
+from auth_middleware import JWTAuthMiddleware
 
 
 def get_frontend_path():
@@ -58,16 +60,23 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Error: {trace_err}")
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "traceback": trace_err})
 
-# CORS configuration for frontend
+# CORS configuration — restricted to specific origins in production.
+# Set ALLOWED_ORIGINS env var as a comma-separated list for production.
+_ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# JWT authentication middleware — validates Bearer tokens on all /api routes
+# except /api/auth/* and /api/health (which are exempt).
+app.add_middleware(JWTAuthMiddleware)
+
 # Include routers
+app.include_router(auth_router.router)
 app.include_router(trades.router)
 app.include_router(metrics.router)
 app.include_router(sync.router)

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { portfolioApi } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Loader2, RefreshCw, Wallet, PiggyBank, PieChart } from 'lucide-react';
+import { IBKRConnectionError } from '@/components/ui/IBKRConnectionError';
 
 interface PortfolioSummary {
     net_liquidation: number;
@@ -76,10 +77,23 @@ export function Portfolio() {
     }
 
     if (error && !data) {
+        const isIbkrError = error.includes('Could not connect to IBKR') || error.includes('10061');
+        
         return (
-            <div className="p-8 text-center">
-                <p className="text-red-500 mb-4">{error}</p>
-                <Button onClick={() => fetchData()}>Retry</Button>
+            <div className="p-8 max-w-2xl mx-auto space-y-6">
+                {isIbkrError ? (
+                    <IBKRConnectionError error={error} />
+                ) : (
+                    <div className="text-center p-8 bg-destructive/5 rounded-xl border border-destructive/10">
+                        <p className="text-destructive mb-4 font-medium">{error}</p>
+                    </div>
+                )}
+                <div className="flex justify-center">
+                    <Button onClick={() => fetchData()} variant="outline">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Retry
+                    </Button>
+                </div>
             </div>
         );
     }

@@ -1,8 +1,9 @@
 """
 Metrics API router - Financial calculations and analytics endpoints.
 Supports multi-account isolation via X-Account-ID request header.
+Supports multi-user isolation via user_id from JWT middleware.
 """
-from fastapi import APIRouter, Depends, Query, Header
+from fastapi import APIRouter, Depends, Query, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from typing import Optional
@@ -22,12 +23,14 @@ from schemas import (
     AnnualMetrics,
     AnnualMetricsResponse,
 )
+from auth_utils import get_user_id_from_request
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
 
 @router.get("/summary", response_model=MetricsSummary)
 async def get_metrics_summary(
+    request: Request,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     ticker: Optional[str] = None,
@@ -37,7 +40,10 @@ async def get_metrics_summary(
 ):
     """Get summary metrics for dashboard KPIs, scoped to the active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     query = select(Trade).where(Trade.account_id == account_id)
+    if user_id:
+        query = query.where(Trade.user_id == user_id)
 
     if start_date:
         query = query.where(func.coalesce(Trade.exit_date, Trade.entry_date) >= start_date)
@@ -92,6 +98,7 @@ async def get_metrics_summary(
 
 @router.get("/equity-curve", response_model=EquityCurveResponse)
 async def get_equity_curve(
+    request: Request,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     use_nav: bool = True,
@@ -103,6 +110,7 @@ async def get_equity_curve(
     Prioritizes AccountEquity (NAV) data if available, falls back to trade-based calculation.
     """
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
 
     if use_nav:
         nav_query = (
@@ -141,17 +149,19 @@ async def get_equity_curve(
             return EquityCurveResponse(data=equity_curve, total_pnl=final_pnl, potential_pnl=final_pnl, use_nav_data=True)
 
     # Fallback: trade-based calculation
-    query = (
+    trade_query = (
         select(Trade)
         .where(Trade.account_id == account_id)
         .order_by(func.coalesce(Trade.exit_date, Trade.entry_date))
     )
+    if user_id:
+        trade_query = trade_query.where(Trade.user_id == user_id)
     if start_date:
-        query = query.where(func.coalesce(Trade.exit_date, Trade.entry_date) >= start_date)
+        trade_query = trade_query.where(func.coalesce(Trade.exit_date, Trade.entry_date) >= start_date)
     if end_date:
-        query = query.where(func.coalesce(Trade.exit_date, Trade.entry_date) <= end_date)
+        trade_query = trade_query.where(func.coalesce(Trade.exit_date, Trade.entry_date) <= end_date)
 
-    result = await db.execute(query)
+    result = await db.execute(trade_query)
     trades = result.scalars().all()
 
     daily_data: dict = defaultdict(lambda: {"net_pnl": 0.0, "adjusted_pnl": 0.0, "count": 0})
@@ -186,12 +196,17 @@ async def get_equity_curve(
 
 @router.get("/annual", response_model=AnnualMetricsResponse)
 async def get_annual_metrics(
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get annual metrics for the active account."""
     account_id = x_account_id or "default"
-    result = await db.execute(select(Trade).where(Trade.account_id == account_id))
+    user_id = get_user_id_from_request(request)
+    annual_query = select(Trade).where(Trade.account_id == account_id)
+    if user_id:
+        annual_query = annual_query.where(Trade.user_id == user_id)
+    result = await db.execute(annual_query)
     trades = result.scalars().all()
 
     annual_data: dict = defaultdict(lambda: {"net_pnl": 0.0, "trade_count": 0, "winning_trades": 0, "losing_trades": 0})
@@ -224,6 +239,7 @@ async def get_annual_metrics(
 @router.get("/nav-activity/{year}", response_model=NAVActivityResponse)
 async def get_nav_activity(
     year: int,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -231,6 +247,7 @@ async def get_nav_activity(
     Get NAV-based daily activity data for Trading Activity component, scoped to the active account.
     """
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     start_of_year = date(year, 1, 1)
     end_of_year = date(year, 12, 31)
 
@@ -248,7 +265,7 @@ async def get_nav_activity(
     if not year_records:
         return NAVActivityResponse(days=[], year=year)
 
-    trade_result = await db.execute(
+    trade_count_query = (
         select(
             func.coalesce(Trade.exit_date, Trade.entry_date).label("trade_date"),
             func.count(Trade.id).label("trade_count"),
@@ -260,6 +277,9 @@ async def get_nav_activity(
         ))
         .group_by(func.coalesce(Trade.exit_date, Trade.entry_date))
     )
+    if user_id:
+        trade_count_query = trade_count_query.where(Trade.user_id == user_id)
+    trade_result = await db.execute(trade_count_query)
     trade_counts = {row.trade_date: row.trade_count for row in trade_result}
 
     baseline = pre_year_records[-1].total_equity if pre_year_records else year_records[0].total_equity
@@ -320,21 +340,25 @@ async def get_nav_history(
 @router.get("/heatmap/{year}", response_model=HeatmapResponse)
 async def get_heatmap(
     year: int,
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get heatmap calendar data for a specific year, scoped to the active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request)
     start_of_year = date(year, 1, 1)
     end_of_year = date(year, 12, 31)
 
-    result = await db.execute(
-        select(Trade).where(and_(
-            Trade.account_id == account_id,
-            func.coalesce(Trade.exit_date, Trade.entry_date) >= start_of_year,
-            func.coalesce(Trade.exit_date, Trade.entry_date) <= end_of_year,
-        ))
+    heatmap_conditions = and_(
+        Trade.account_id == account_id,
+        func.coalesce(Trade.exit_date, Trade.entry_date) >= start_of_year,
+        func.coalesce(Trade.exit_date, Trade.entry_date) <= end_of_year,
     )
+    heatmap_query = select(Trade).where(heatmap_conditions)
+    if user_id:
+        heatmap_query = heatmap_query.where(Trade.user_id == user_id)
+    result = await db.execute(heatmap_query)
     trades = result.scalars().all()
 
     daily_pnl: dict = defaultdict(lambda: {"pnl": 0.0, "count": 0})
@@ -363,32 +387,42 @@ async def get_heatmap(
 
 @router.get("/strategies")
 async def get_strategies(
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get list of unique strategies used in the active account."""
     account_id = x_account_id or "default"
-    result = await db.execute(
+    user_id = get_user_id_from_request(request)
+    strat_query = (
         select(Trade.strategy)
         .where(Trade.account_id == account_id, Trade.strategy.isnot(None))
         .distinct()
     )
+    if user_id:
+        strat_query = strat_query.where(Trade.user_id == user_id)
+    result = await db.execute(strat_query)
     strategies = [row[0] for row in result.all() if row[0]]
     return {"strategies": sorted(strategies)}
 
 
 @router.get("/tickers")
 async def get_tickers(
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get list of unique tickers traded in the active account."""
     account_id = x_account_id or "default"
-    result = await db.execute(
+    user_id = get_user_id_from_request(request)
+    ticker_query = (
         select(Trade.ticker)
         .where(Trade.account_id == account_id)
         .distinct()
         .order_by(Trade.ticker)
     )
+    if user_id:
+        ticker_query = ticker_query.where(Trade.user_id == user_id)
+    result = await db.execute(ticker_query)
     tickers = [row[0] for row in result.all()]
     return {"tickers": tickers}

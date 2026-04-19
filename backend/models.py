@@ -1,6 +1,6 @@
 """
 SQLAlchemy models for the Trading Journal database.
-Includes Trade, AccountEquity (NAV history), and Settings models.
+Includes Trade, AccountEquity (NAV history), Settings, and User models.
 """
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Boolean, Enum as SQLEnum
 from sqlalchemy.sql import func
@@ -9,6 +9,7 @@ from enum import Enum
 from datetime import date, datetime
 from typing import Optional
 import hashlib
+import uuid
 
 
 class PsychologyTag(str, Enum):
@@ -211,4 +212,26 @@ class BoardNote(Base):
             "date": self.date.isoformat() if self.date else None,
             "content": self.content,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class User(Base):
+    """Application user for multi-user authentication.
+    Each user owns their own trades, settings and accounts via user_id.
+    The existing X-Account-ID multi-account system works within each user.
+    """
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)  # bcrypt via passlib
+    created_at = Column(DateTime, server_default=func.now())
+    is_active = Column(Boolean, default=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "email": self.email,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_active": self.is_active,
         }

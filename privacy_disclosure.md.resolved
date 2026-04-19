@@ -1,0 +1,130 @@
+# Privacidad, Seguridad y Acceso a tus Datos
+### Trading Journal Pro — Documento de Divulgación para el Usuario
+
+---
+
+## Lo más importante primero
+
+**Trading Journal Pro nunca puede realizar operaciones en tu cuenta de IBKR.**
+No puede comprar. No puede vender. No puede cancelar órdenes. No puede mover dinero.
+Esto no es una promesa — es una limitación técnica estructural del diseño de la aplicación.
+
+---
+
+## Qué accede la aplicación y para qué
+
+### 1. Tu historial de trades (Flex Token + Query ID)
+
+**Qué es el Flex Token:**
+Es un token de acceso que tú mismo generas en el portal de IBKR (`flex.interactivebrokers.com`). IBKR lo diseñó específicamente para este propósito: permitir que aplicaciones de terceros descarguen reportes históricos de tu actividad.
+
+**Para qué lo usamos:**
+Únicamente para descargar tu historial de trades completados y tu historial de equity (NAV) y mostrarlos en el dashboard.
+
+**Qué puede hacer este token:**
+✅ Descargar reportes de trades ya ejecutados  
+✅ Descargar historial de balance de cuenta  
+
+**Qué NO puede hacer este token:**
+❌ Realizar compras o ventas  
+❌ Ver tu contraseña de IBKR  
+❌ Transferir dinero  
+❌ Acceder a tu cuenta de IBKR directamente  
+❌ Modificar ningún parámetro de tu cuenta  
+
+**Cómo lo almacenamos:**
+Tu Flex Token se encripta antes de guardarse. Ni el desarrollador ni nadie con acceso al servidor puede leerlo en texto plano. Además, puedes revocarlo en cualquier momento desde tu portal de IBKR — si lo revocan, deja de funcionar inmediatamente y queda inútil.
+
+---
+
+### 2. Posiciones en tiempo real (TJ Connector + TWS)
+
+**Qué es TJ Connector:**
+Es un pequeño programa que instalas en tu computadora. Se conecta a Trader Workstation (TWS) o IB Gateway que tú tienes abierto, usando la API oficial de IBKR.
+
+**Para qué lo usamos:**
+Para mostrar tus posiciones abiertas actualmente, el valor de tu portfolio en tiempo real, y para calcular automáticamente los niveles de strike de tus opciones.
+
+**Qué puede leer el Connector:**
+✅ Lista de posiciones abiertas  
+✅ Precio de mercado actual  
+✅ Valor del portfolio y balance  
+✅ Volatilidad histórica e implícita (para cálculo de strikes)  
+✅ Órdenes stop activas (para identificarlas en los boards)  
+
+**Qué NO puede hacer el Connector:**
+❌ Colocar órdenes de compra o venta  
+❌ Cancelar o modificar órdenes existentes  
+❌ Acceder a tu contraseña de IBKR  
+❌ Transferir fondos  
+❌ Operar en tu nombre bajo ninguna circunstancia  
+
+Puedes verificarlo: el código del Connector no contiene ninguna llamada a `placeOrder()`, `cancelOrder()`, ni ninguna función de escritura de la API de IBKR. Solo usa funciones de lectura.
+
+**Dónde opera el Connector:**
+El Connector corre exclusivamente en tu propia computadora. Se comunica con TWS a través de `127.0.0.1` (que significa "esta misma máquina"). Ningún dato de tus posiciones en tiempo real viaja a nuestros servidores — se muestran directamente en tu navegador desde tu propia máquina.
+
+---
+
+## Separación de responsabilidades — qué hacemos nosotros y qué haces tú
+
+| Responsabilidad | Quién la tiene |
+|---|---|
+| Mantener tu cuenta de IBKR segura | **Tú** |
+| Activar o desactivar el acceso API en TWS | **Tú** |
+| Revocar el Flex Token cuando lo consideres | **Tú** |
+| Mantener tu computadora libre de malware | **Tú** |
+| No operar en tu cuenta | **Nosotros — garantizado por diseño** |
+| No compartir tu información con terceros | **Nosotros** |
+| Encriptar tu token antes de almacenarlo | **Nosotros** |
+| Mantener el servidor con acceso HTTPS | **Nosotros** |
+
+---
+
+## Qué debes saber antes de usar TJ Connector
+
+### Sobre tener TWS abierto con API habilitada
+Cuando habilitas la API en TWS, cualquier programa en tu computadora con acceso a `localhost:7497` puede conectarse. Esto no es un riesgo creado por nuestra aplicación — es la forma en que IBKR diseñó su API para uso con herramientas de terceros.
+
+**Protecciones que ya tiene TWS por defecto:**
+- Muestra confirmación manual antes de ejecutar cualquier orden por API
+- Tiene una opción de "API de solo lectura" que puedes activar para mayor tranquilidad
+- Permite configurar qué IPs pueden conectarse
+- Registra en su propio log todas las conexiones y operaciones
+
+**Recomendación:** Activa la opción "Read-Only API" en TWS si quieres una capa adicional de seguridad. Con esa opción activada, ningún programa — incluyendo el nuestro — puede operar aunque quisiera.
+
+### Sobre el Connector en tu computadora
+El Connector es un programa que descarga e instalas tú mismo, en tu propia máquina. Como cualquier programa que instalas, tienes el control completo — puedes cerrarlo, desinstalarlo, o no usarlo. Solo funciona cuando tú lo abres.
+
+---
+
+## En palabras simples
+
+Trading Journal Pro es una herramienta de análisis. Somos lectores de tu historial, no participantes en tus operaciones. La misma información que ves en tu pantalla de TWS es la que mostramos en la app — la diferencia es que nosotros la organizamos, graficamos y analizamos para ayudarte a tomar mejores decisiones.
+
+Tu dinero, tus órdenes y tus operaciones son 100% tuyas. Nosotros nunca tocamos ninguna de las tres.
+
+---
+
+## Preguntas frecuentes
+
+**¿Pueden ver mis posiciones en tiempo real desde sus servidores?**
+No. Los datos en tiempo real son procesados localmente en tu computadora por el TJ Connector y se muestran directamente en tu navegador. No pasan por nuestros servidores.
+
+**¿Qué pasa si alguien hackea los servidores de Trading Journal Pro?**
+El atacante obtendría acceso a tu historial de trades (que es información ya ejecutada, no información para operar). Tu Flex Token estaría encriptado y no podría usarse fácilmente. Tus posiciones en tiempo real nunca estuvieron en el servidor. Tu dinero no corre ningún riesgo directo.
+
+**¿Qué hago si pierdo la confianza en la aplicación?**
+1. Revoca tu Flex Token en `flex.interactivebrokers.com` — queda inútil de inmediato
+2. Cierra y desinstala TJ Connector de tu computadora
+3. Desactiva el acceso API en TWS
+
+Con esos tres pasos, la aplicación no puede acceder a ningún dato tuyo.
+
+**¿Pueden operar en mi cuenta si quisieran?**
+No. El Flex Token no lo permite por diseño de IBKR. El TJ Connector usa la API de TWS pero no contiene el código necesario para enviar órdenes — y aunque lo contuviera, TWS pide confirmación manual para cualquier orden ejecutada por API.
+
+---
+
+*Este documento describe el funcionamiento técnico actual de la aplicación. Si tienes preguntas específicas sobre seguridad o privacidad, puedes contactarnos directamente.*

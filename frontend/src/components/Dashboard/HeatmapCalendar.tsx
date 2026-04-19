@@ -13,22 +13,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTradesByDate } from '@/hooks/useTrades';
 import { cn, formatCurrency, formatDate, formatOptionSymbol } from '@/lib/utils';
 import { syncApi } from '@/lib/api';
+import { useTranslation, useMonthNames } from '@/lib/i18n';
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, CalendarRange, History, RefreshCw, Clock } from 'lucide-react';
-
-function formatTimeAgo(dateString: string): string {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffMs = now.getTime() - past.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-
-    if (diffSec < 60) return 'just now';
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHrs = Math.floor(diffMin / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    const diffDays = Math.floor(diffHrs / 24);
-    return `${diffDays}d ago`;
-}
 
 type TimePerspective = 'days' | 'weeks' | 'months' | 'years';
 
@@ -41,6 +27,9 @@ interface HeatmapCalendarProps {
 }
 
 export function HeatmapCalendar({ className, compact = false, onDayClick, onSync, isSyncing = false }: HeatmapCalendarProps) {
+    const { t } = useTranslation();
+    const monthNames = useMonthNames();
+
     const [year, setYear] = usePersistedState('tj_heatmap_year', new Date().getFullYear());
     const [month, setMonth] = usePersistedState('tj_heatmap_month', new Date().getMonth());
     const [perspective, setPerspective] = usePersistedState<TimePerspective>('tj_heatmap_perspective', 'days');
@@ -52,12 +41,9 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
     const { data: trades } = useTradesByDate(selectedDate);
     const { data: settings } = useSettings();
 
-    // Use NAV data as primary source (consistent with Equity Curve)
-    // Fall back to heatmap data if NAV is not available
     const hasNAVData = navActivityData && navActivityData.days.length > 0;
     const isLoading = isNAVLoading || isHeatmapLoading;
 
-    // Last sync data
     const { data: lastSyncData } = useQuery({
         queryKey: ['last-sync'],
         queryFn: syncApi.getLastSync,
@@ -66,6 +52,21 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
     });
 
     const [timeAgoText, setTimeAgoText] = useState<string | null>(null);
+
+    const formatTimeAgo = (dateString: string): string => {
+        const now = new Date();
+        const past = new Date(dateString);
+        const diffMs = now.getTime() - past.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+
+        if (diffSec < 60) return t('sidebar.timeAgo.justNow');
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return t('sidebar.timeAgo.minutesAgo', { n: diffMin });
+        const diffHrs = Math.floor(diffMin / 60);
+        if (diffHrs < 24) return t('sidebar.timeAgo.hoursAgo', { n: diffHrs });
+        const diffDays = Math.floor(diffHrs / 24);
+        return t('sidebar.timeAgo.daysAgo', { n: diffDays });
+    };
 
     useEffect(() => {
         const update = () => {
@@ -78,63 +79,48 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
         update();
         const interval = setInterval(update, 30_000);
         return () => clearInterval(interval);
-    }, [lastSyncData]);
+    }, [lastSyncData, t]);
 
-    // Helper to parse date string YYYY-MM-DD as local date (noon to avoid DST issues)
     const parseDate = (dateStr: string) => {
         const [y, m, d] = dateStr.split('-').map(Number);
         return new Date(y, m - 1, d, 12, 0, 0);
     };
 
-    // Create a map for quick lookup — use heatmap data to show realized trades in Days view
     const dayMap = useMemo(() => {
         if (!heatmapData?.days) return new Map();
         return new Map(heatmapData.days.map((d) => [d.date, d]));
     }, [heatmapData]);
 
-    // Helper to get starting balance for a period (used for percentage calculations)
     const getStartingBalance = (startDate: Date) => {
-        // When using NAV data, get the balance from the first NAV record before the period
         if (hasNAVData) {
             const targetStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-            // Find the last NAV record before or on the target date
             const sortedDays = [...navActivityData.days].sort((a, b) => a.date.localeCompare(b.date));
             const priorDay = [...sortedDays].reverse().find(d => d.date < targetStr);
-            if (priorDay) return priorDay.starting_balance + priorDay.pnl; // end-of-day balance
-            // Fallback: use first day's starting_balance
+            if (priorDay) return priorDay.starting_balance + priorDay.pnl;
             if (sortedDays.length > 0) return sortedDays[0].starting_balance;
         }
         return settings?.base_account_balance || 25000;
     };
 
-    // Generate calendar grid for the current month (days view)
     const calendarDays = useMemo(() => {
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const daysInMonth = lastDay.getDate();
         const startDayOfWeek = firstDay.getDay();
-
-        // Shift so Monday is the first column
         const emptyDays = (startDayOfWeek + 6) % 7;
 
         const days: { date: string | null; day: number | null }[] = [];
-
-        for (let i = 0; i < emptyDays; i++) {
-            days.push({ date: null, day: null });
-        }
+        for (let i = 0; i < emptyDays; i++) days.push({ date: null, day: null });
 
         for (let day = 1; day <= daysInMonth; day++) {
-            // Create strings manually to avoid timezone shifts
             const mStr = String(month + 1).padStart(2, '0');
             const dStr = String(day).padStart(2, '0');
-            const dateStr = `${year}-${mStr}-${dStr}`;
-            days.push({ date: dateStr, day });
+            days.push({ date: `${year}-${mStr}-${dStr}`, day });
         }
 
         return days;
     }, [year, month]);
 
-    // Generate weeks data — uses NAV data when available for Equity Curve consistency
     const weeksData = useMemo(() => {
         const sourceDays = hasNAVData ? navActivityData.days : heatmapData?.days;
         if (!sourceDays || sourceDays.length === 0) return [];
@@ -144,10 +130,9 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
         sourceDays.forEach((d) => {
             const date = parseDate(d.date);
             const day = date.getDay();
-            // Calculate how many days to subtract to get to Monday (0 is Sunday, 1 is Monday...)
             const diff = date.getDate() - day + (day === 0 ? -6 : 1);
             const weekStart = new Date(date);
-            weekStart.setDate(diff); // Monday start
+            weekStart.setDate(diff);
             const weekKey = weekStart.toISOString().split('T')[0];
 
             const existing = weekMap.get(weekKey);
@@ -163,20 +148,18 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
         return Array.from(weekMap.values()).sort((a, b) => a.startDate.localeCompare(b.startDate));
     }, [navActivityData, heatmapData, hasNAVData]);
 
-    // Generate months data — uses NAV data when available for Equity Curve consistency
+    const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
     const monthsData = useMemo(() => {
         const sourceDays = hasNAVData ? navActivityData.days : heatmapData?.days;
         if (!sourceDays || sourceDays.length === 0) return [];
 
         const monthMap = new Map<string, { pnl: number; trades: number; month: number; startingBalance: number }>();
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
         sourceDays.forEach((d) => {
             const [y, m] = d.date.split('-').map(Number);
-
             if (y === year) {
                 const monthKey = `${y}-${m - 1}`;
-
                 const existing = monthMap.get(monthKey);
                 if (existing) {
                     existing.pnl += d.pnl;
@@ -188,7 +171,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
             }
         });
 
-        return monthNames.map((name, i) => {
+        return shortMonthNames.map((name, i) => {
             const data = monthMap.get(`${year}-${i}`);
             return { name, pnl: data?.pnl || 0, trades: data?.trades || 0, startingBalance: data?.startingBalance || 0 };
         });
@@ -201,34 +184,25 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
     };
 
     const handlePrevMonth = () => {
-        if (month === 0) {
-            setMonth(11);
-            setYear(year - 1);
-        } else {
-            setMonth(month - 1);
-        }
+        if (month === 0) { setMonth(11); setYear(year - 1); }
+        else setMonth(month - 1);
     };
 
     const handleNextMonth = () => {
-        if (month === 11) {
-            setMonth(0);
-            setYear(year + 1);
-        } else {
-            setMonth(month + 1);
-        }
+        if (month === 11) { setMonth(0); setYear(year + 1); }
+        else setMonth(month + 1);
     };
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-
+    const dayNames = [
+        t('heatmap.days.mon'), t('heatmap.days.tue'), t('heatmap.days.wed'),
+        t('heatmap.days.thu'), t('heatmap.days.fri'), t('heatmap.days.sat'), t('heatmap.days.sun'),
+    ];
 
     const perspectiveOptions: { value: TimePerspective; label: string; icon: React.ReactNode }[] = [
-        { value: 'days', label: 'Days', icon: <CalendarDays className="w-3.5 h-3.5" /> },
-        { value: 'weeks', label: 'Weeks', icon: <CalendarRange className="w-3.5 h-3.5" /> },
-        { value: 'months', label: 'Months', icon: <Calendar className="w-3.5 h-3.5" /> },
-        { value: 'years', label: 'Years', icon: <History className="w-3.5 h-3.5" /> },
+        { value: 'days', label: t('heatmap.perspective.days'), icon: <CalendarDays className="w-3.5 h-3.5" /> },
+        { value: 'weeks', label: t('heatmap.perspective.weeks'), icon: <CalendarRange className="w-3.5 h-3.5" /> },
+        { value: 'months', label: t('heatmap.perspective.months'), icon: <Calendar className="w-3.5 h-3.5" /> },
+        { value: 'years', label: t('heatmap.perspective.years'), icon: <History className="w-3.5 h-3.5" /> },
     ];
 
     // Compact view for mini calendar
@@ -239,14 +213,14 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            Trading Activity
+                            {t('heatmap.title')}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-muted-foreground hover:text-primary"
                                 onClick={() => onSync?.()}
                                 disabled={isSyncing || !onSync}
-                                title="Sync IBKR Data"
+                                title={t('heatmap.syncButton')}
                             >
                                 <RefreshCw className={cn('w-3 h-3', isSyncing && 'animate-spin')} />
                             </Button>
@@ -264,10 +238,8 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                             </Button>
                         </div>
                     </div>
-
                 </CardHeader>
                 <CardContent className="pt-0">
-                    {/* Day headers */}
                     <div className="grid grid-cols-7 gap-0.5 mb-1">
                         {dayNames.map((day) => (
                             <div key={day} className="text-center text-[10px] text-muted-foreground font-medium">
@@ -275,7 +247,6 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                             </div>
                         ))}
                     </div>
-                    {/* Mini calendar grid */}
                     <div className="grid grid-cols-7 gap-0.5">
                         {calendarDays.map(({ date, day }, index) => {
                             const dayData = date ? dayMap.get(date) : null;
@@ -302,35 +273,32 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                             );
                         })}
                     </div>
-                    {/* Legend */}
                     <div className="flex items-center justify-center gap-3 mt-2 text-[10px] text-muted-foreground">
                         <div className="flex items-center gap-1">
                             <div className="w-2 h-2 rounded bg-success/40" />
-                            <span>Profit</span>
+                            <span>{t('heatmap.profit')}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <div className="w-2 h-2 rounded bg-destructive/40" />
-                            <span>Loss</span>
+                            <span>{t('heatmap.loss')}</span>
                         </div>
                     </div>
 
-                    {/* Sync Button */}
                     <button
                         onClick={() => onSync?.()}
                         disabled={isSyncing || !onSync}
                         className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-primary bg-secondary/30 hover:bg-secondary/60 border border-white/5 rounded-lg transition-colors disabled:opacity-50"
                     >
                         <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-                        {isSyncing ? 'Syncing...' : 'Sync IBKR Data'}
+                        {isSyncing ? t('heatmap.syncing') : t('heatmap.syncButton')}
                     </button>
-                    {/* Last Sync Indicator */}
                     {timeAgoText && (
                         <div
                             className="flex items-center justify-center gap-1.5 mt-1.5 text-[10px] text-muted-foreground/60"
-                            title={`Last sync: ${lastSyncData?.last_sync ?? 'N/A'}`}
+                            title={`${t('heatmap.lastSync')} ${lastSyncData?.last_sync ?? 'N/A'}`}
                         >
                             <Clock className="w-3 h-3" />
-                            <span>Last sync: {timeAgoText}</span>
+                            <span>{t('heatmap.lastSync')} {timeAgoText}</span>
                         </div>
                     )}
                 </CardContent>
@@ -345,20 +313,19 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                 <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <CardTitle className="text-base">Trading Activity</CardTitle>
+                        <CardTitle className="text-base">{t('heatmap.title')}</CardTitle>
                         <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-primary"
                             onClick={() => onSync?.()}
                             disabled={isSyncing || !onSync}
-                            title="Sync IBKR Data"
+                            title={t('heatmap.syncButton')}
                         >
                             <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
                         </Button>
                     </div>
 
-                    {/* Time Perspective Selector */}
                     <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg">
                         {perspectiveOptions.map((option) => (
                             <Button
@@ -374,7 +341,6 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                         ))}
                     </div>
 
-                    {/* Month/Year Navigation */}
                     {perspective === 'days' && (
                         <div className="flex items-center gap-2">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
@@ -402,9 +368,6 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                         </div>
                     )}
                 </div>
-
-                {/* Monthly Summary */}
-
             </CardHeader>
 
             <CardContent>
@@ -458,7 +421,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                                                                     {pnl > 0 && '+'}${Math.abs(pnl).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                                                 </div>
                                                                 <div className="text-[10px] text-muted-foreground">
-                                                                    {tradeCount} trade{tradeCount !== 1 ? 's' : ''}
+                                                                    {tradeCount} {tradeCount !== 1 ? t('heatmap.trades') : t('heatmap.trade')}
                                                                 </div>
                                                             </div>
                                                         )}
@@ -485,7 +448,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                                         )}
                                     >
                                         <div className="text-xs text-muted-foreground mb-1">
-                                            Week of {formatDate(week.startDate)}
+                                            {t('heatmap.weekOf')} {formatDate(week.startDate)}
                                         </div>
                                         <div className={cn('text-lg font-bold font-mono',
                                             week.pnl > 0 && 'text-success', week.pnl < 0 && 'text-destructive'
@@ -500,7 +463,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                                                 </div>
                                             ) : null;
                                         })()}
-                                        <div className="text-xs text-muted-foreground mt-1">{week.trades} trades</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{week.trades} {t('heatmap.trades')}</div>
                                     </div>
                                 ))}
                             </div>
@@ -534,7 +497,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                                                 </div>
                                             ) : null;
                                         })()}
-                                        <div className="text-xs text-muted-foreground mt-1">{m.trades} trades</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{m.trades} {t('heatmap.trades')}</div>
                                     </div>
                                 ))}
                             </div>
@@ -544,9 +507,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                         {perspective === 'years' && (
                             <div className="grid grid-cols-3 gap-3">
                                 {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 5 + i).reverse().map((y) => {
-                                    // Find data for this year
                                     const yearData = annualMetrics?.data?.find(d => d.year === y);
-
                                     const totalPnl = yearData?.net_pnl || 0;
                                     const totalTrades = yearData?.trade_count || 0;
 
@@ -567,7 +528,7 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                                             )}>
                                                 {totalTrades > 0 ? (totalPnl >= 0 ? '+' : '') + formatCurrency(totalPnl) : '-'}
                                             </div>
-                                            <div className="text-sm text-muted-foreground mt-1">{totalTrades} trades</div>
+                                            <div className="text-sm text-muted-foreground mt-1">{totalTrades} {t('heatmap.trades')}</div>
                                         </div>
                                     );
                                 })}
@@ -578,15 +539,15 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                         <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded bg-success/20 border border-success/30" />
-                                <span>Profit</span>
+                                <span>{t('heatmap.profit')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded bg-destructive/20 border border-destructive/30" />
-                                <span>Loss</span>
+                                <span>{t('heatmap.loss')}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded border border-border/50" />
-                                <span>No trades</span>
+                                <span>{t('heatmap.noTrades')}</span>
                             </div>
                         </div>
                     </>
@@ -599,6 +560,8 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
                         trades={trades}
                         formatDate={formatDate}
                         formatCurrency={formatCurrency}
+                        moreTrades={t('heatmap.moreTrades')}
+                        showLess={t('heatmap.showLess')}
                     />
                 )}
             </CardContent>
@@ -606,15 +569,8 @@ export function HeatmapCalendar({ className, compact = false, onDayClick, onSync
     );
 }
 
-
-
-function DayDetails({ date, trades, formatDate, formatCurrency }: any) {
+function DayDetails({ date, trades, formatDate, formatCurrency, moreTrades, showLess }: any) {
     const [expanded, setExpanded] = useState(false);
-
-    // Reset expansion when date changes (handled by key or effect? simpler to just let user manually expand)
-    // Actually, if I change day, I want it collapsed by default.
-    // Use key={date} on the wrapper div to reset state.
-
     const visibleTrades = expanded ? trades : trades.slice(0, 5);
     const hiddenCount = trades.length - 5;
 
@@ -642,7 +598,7 @@ function DayDetails({ date, trades, formatDate, formatCurrency }: any) {
                         onClick={() => setExpanded(true)}
                         className="text-xs text-muted-foreground pt-1 hover:text-primary transition-colors flex items-center gap-1"
                     >
-                        +{hiddenCount} more trades
+                        {moreTrades.replace('{n}', hiddenCount)}
                     </button>
                 )}
                 {expanded && trades.length > 5 && (
@@ -650,7 +606,7 @@ function DayDetails({ date, trades, formatDate, formatCurrency }: any) {
                         onClick={() => setExpanded(false)}
                         className="text-xs text-muted-foreground pt-1 hover:text-primary transition-colors flex items-center gap-1"
                     >
-                        Show less
+                        {showLess}
                     </button>
                 )}
             </div>

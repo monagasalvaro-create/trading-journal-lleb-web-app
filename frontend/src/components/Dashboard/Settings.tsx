@@ -10,6 +10,7 @@ import { settingsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Theme } from '@/hooks/useTheme';
 import { AccountManager } from '@/components/Dashboard/AccountManager';
+import { useTranslation, type Lang } from '@/lib/i18n';
 import {
     Settings as SettingsIcon,
     X,
@@ -24,9 +25,10 @@ import {
     ChevronDown,
     ChevronUp,
     Users,
+    Languages,
+    RefreshCw,
 } from 'lucide-react';
 
-// Time formatting removed as lastSync logic moved to AccountManager
 interface CollapsibleSectionProps {
     title: string;
     icon: React.ReactNode;
@@ -76,6 +78,7 @@ export function Settings({
     onThemeChange,
     onAccountSwitch,
 }: SettingsProps) {
+    const { t, lang, setLang } = useTranslation();
     const queryClient = useQueryClient();
 
     const [formData, setFormData] = useState({
@@ -88,7 +91,6 @@ export function Settings({
         queryFn: settingsApi.get,
     });
 
-    // Update form when settings load
     useEffect(() => {
         if (settings) {
             setFormData({
@@ -100,7 +102,7 @@ export function Settings({
     }, [settings]);
 
     const updateMutation = useMutation({
-        mutationFn: settingsApi.update,
+        mutationFn: (data: Parameters<typeof settingsApi.update>[0]) => settingsApi.update(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings'] });
         },
@@ -126,13 +128,18 @@ export function Settings({
         );
     }
 
+    const langOptions: { value: Lang; label: string; flag: string }[] = [
+        { value: 'en', label: t('settings.language.english'), flag: '🇬🇧' },
+        { value: 'es', label: t('settings.language.spanish'), flag: '🇪🇸' },
+    ];
+
     return (
         <Card glass className={cn('w-full max-w-2xl', className)}>
             <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <SettingsIcon className="w-5 h-5" />
-                        Settings
+                        {t('settings.title')}
                     </CardTitle>
                     {onClose && (
                         <Button variant="ghost" size="icon" onClick={onClose}>
@@ -144,21 +151,49 @@ export function Settings({
             <CardContent className="space-y-8">
                 {/* Accounts Section — always first */}
                 <CollapsibleSection
-                    title="Accounts"
+                    title={t('settings.section.accounts')}
                     icon={<Users className="w-4 h-4 text-blue-400" />}
                     defaultOpen={true}
                 >
                     <AccountManager onAccountSwitch={onAccountSwitch} />
                 </CollapsibleSection>
 
+                {/* Language Section */}
+                <CollapsibleSection
+                    title={t('settings.section.language')}
+                    icon={<Languages className="w-4 h-4 text-amber-400" />}
+                    defaultOpen={false}
+                >
+                    <div className="flex flex-col gap-3">
+                        <p className="text-xs text-muted-foreground">{t('settings.language.title')}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            {langOptions.map((option) => (
+                                <button
+                                    key={option.value}
+                                    onClick={() => setLang(option.value)}
+                                    className={cn(
+                                        'flex items-center justify-center gap-2 p-3 rounded-lg border transition-all',
+                                        lang === option.value
+                                            ? 'bg-primary/10 border-primary text-primary'
+                                            : 'bg-background border-border hover:bg-secondary/80'
+                                    )}
+                                >
+                                    <span className="text-xl">{option.flag}</span>
+                                    <span className="text-sm font-medium">{option.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
                 {/* Appearance Section */}
                 <CollapsibleSection
-                    title="Appearance"
+                    title={t('settings.section.appearance')}
                     icon={<Palette className="w-4 h-4 text-primary" />}
                 >
                     <div className="flex flex-col gap-4">
                         <div>
-                            <h4 className="text-sm font-medium mb-1">Theme Preference</h4>
+                            <h4 className="text-sm font-medium mb-1">{t('settings.theme.preference')}</h4>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3">
@@ -172,7 +207,7 @@ export function Settings({
                                 )}
                             >
                                 <Sun className="w-5 h-5" />
-                                <span className="text-xs font-medium">Light</span>
+                                <span className="text-xs font-medium">{t('settings.theme.light')}</span>
                             </button>
 
                             <button
@@ -185,7 +220,7 @@ export function Settings({
                                 )}
                             >
                                 <Moon className="w-5 h-5" />
-                                <span className="text-xs font-medium">Dark</span>
+                                <span className="text-xs font-medium">{t('settings.theme.dark')}</span>
                             </button>
 
                             <button
@@ -207,14 +242,14 @@ export function Settings({
 
                 {/* IBKR TWS API Section */}
                 <CollapsibleSection
-                    title="IBKR TWS API"
+                    title={t('settings.section.ibkr')}
                     icon={<Plug className="w-4 h-4 text-cyan-500" />}
                 >
                     <div className="space-y-3">
                         <div>
-                            <h4 className="text-sm font-medium mb-1">Socket Port</h4>
+                            <h4 className="text-sm font-medium mb-1">{t('settings.socketPort')}</h4>
                             <p className="text-xs text-muted-foreground mb-3">
-                                Required for Portfolio, Portfolio Boards (real-time), and Strike Calculator.
+                                {t('settings.socketPortDescription')}
                             </p>
                             <input
                                 type="number"
@@ -255,9 +290,35 @@ export function Settings({
                     </div>
                 </CollapsibleSection>
 
+                {/* General / System Section */}
+                <CollapsibleSection
+                    title={t('settings.section.general')}
+                    icon={<SettingsIcon className="w-4 h-4 text-slate-400" />}
+                >
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-lg bg-secondary/20 border border-border/50">
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-medium">{t('settings.resetOnboarding.title')}</h4>
+                            <p className="text-xs text-muted-foreground">{t('settings.resetOnboarding.description')}</p>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                                localStorage.removeItem('tj_onboardingComplete');
+                                localStorage.setItem('tj_onboardingForced', 'true');
+                                window.location.reload();
+                            }}
+                            className="shrink-0 gap-2"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            {t('settings.resetOnboarding.button')}
+                        </Button>
+                    </div>
+                </CollapsibleSection>
+
                 {/* Portfolio Division Section */}
                 <CollapsibleSection
-                    title="Portfolio Division"
+                    title={t('settings.section.portfolio')}
                     icon={<PieChart className="w-4 h-4 text-emerald-500" />}
                     defaultOpen={true}
                 >
@@ -267,7 +328,7 @@ export function Settings({
                         <div className="space-y-3">
                             <label className="text-sm font-medium flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
-                                Stocks
+                                {t('settings.stocks')}
                             </label>
                             <div className="relative">
                                 <input
@@ -297,7 +358,7 @@ export function Settings({
                         <div className="space-y-3">
                             <label className="text-sm font-medium flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full bg-violet-500 shadow-sm" />
-                                Options
+                                {t('settings.options')}
                             </label>
                             <div className="relative">
                                 <input
@@ -337,7 +398,7 @@ export function Settings({
                         ) : (
                             <Save className="w-4 h-4 mr-2" />
                         )}
-                        Save Settings
+                        {t('settings.saveButton')}
                     </Button>
                 </div>
             </CardContent>
