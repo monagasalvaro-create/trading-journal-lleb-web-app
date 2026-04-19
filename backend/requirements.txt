@@ -7,6 +7,10 @@ numpy==2.4.2
 httpx==0.28.1
 python-dotenv==1.2.1
 pydantic==2.12.5
-pywebview==6.1
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+email-validator>=2.0
+bcrypt==4.0.1
 ib_insync==0.9.86
 cryptography==46.0.5
