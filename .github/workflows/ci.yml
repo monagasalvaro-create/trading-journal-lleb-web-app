@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Backend smoke test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tj
+          POSTGRES_PASSWORD: tj
+          POSTGRES_DB: trading_journal
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Verify migrations run cleanly on empty Postgres
+        env:
+          DATABASE_URL: postgresql+asyncpg://tj:tj@localhost:5432/trading_journal
+          JWT_SECRET: ci-test-secret-not-used-in-production
+          FERNET_KEY: ${{ secrets.FERNET_KEY_CI }}
+          ENVIRONMENT: test
+          ALLOWED_ORIGINS: http://localhost:5173
+        run: |
+          cd backend
+          python - <<'EOF'
+          import asyncio
+          from database import init_db
+
+          async def main():
+              await init_db()
+              print("Migrations applied successfully")
+
+          asyncio.run(main())
+          EOF
+
+      - name: Run pytest (skip if no tests collected)
+        env:
+          DATABASE_URL: postgresql+asyncpg://tj:tj@localhost:5432/trading_journal
+          JWT_SECRET: ci-test-secret-not-used-in-production
+          FERNET_KEY: ${{ secrets.FERNET_KEY_CI }}
+          ENVIRONMENT: test
+          ALLOWED_ORIGINS: http://localhost:5173
+        run: |
+          cd backend
+          python -m pytest tests/ -v --ignore=tests/test_sync_live.py -q 2>&1 || \
+            { CODE=$?; [ $CODE -eq 5 ] && echo "No tests collected yet — OK" || exit $CODE; }
+
+  build:
+    name: Docker multi-stage build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build -t trading-journal-pro:ci .
