@@ -1,12 +1,17 @@
 """
-Versioned database migration system for Trading Journal Pro.
+Versioned database migration system for Trading Journal Pro (PostgreSQL-only).
 
 Each migration has a version number and a list of SQL statements.
 The system tracks the current schema version in a dedicated table
 and only runs migrations that haven't been applied yet.
+
+Statements are wrapped in per-statement savepoints so a "duplicate object"
+error on an idempotent re-run doesn't abort the outer transaction (Postgres-strict).
 """
 import logging
-from sqlalchemy import text
+import re
+
+from sqlalchemy import inspect, text
 
 logger = logging.getLogger(__name__)
 
@@ -14,49 +19,40 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 7
 
 # Each migration is a tuple: (version, description, list_of_sql_statements)
-# Migrations are applied in order. Each SQL statement is executed independently.
-# Use column-existence checks for ADD COLUMN to remain idempotent.
+# Migrations are applied in order. Each SQL statement is executed inside its own savepoint.
 MIGRATIONS = [
     (
         1,
         "Add settings and asset_board_items columns from initial release",
         [
-            # Settings columns
             "ALTER TABLE settings ADD COLUMN ibkr_socket_port INTEGER DEFAULT 7497",
             "ALTER TABLE settings ADD COLUMN portfolio_stocks_pct REAL DEFAULT 70.0",
             "ALTER TABLE settings ADD COLUMN portfolio_options_pct REAL DEFAULT 30.0",
-            # Asset board items columns
             "ALTER TABLE asset_board_items ADD COLUMN date DATE DEFAULT CURRENT_DATE",
             "ALTER TABLE asset_board_items ADD COLUMN invested_amount REAL",
             "ALTER TABLE asset_board_items ADD COLUMN net_pnl REAL",
-            "ALTER TABLE asset_board_items ADD COLUMN is_closed BOOLEAN DEFAULT 0",
+            "ALTER TABLE asset_board_items ADD COLUMN is_closed BOOLEAN DEFAULT FALSE",
         ],
     ),
     (
         2,
         "Placeholder for future migrations",
-        [
-            # Add new SQL statements here when schema changes are needed.
-            # Example:
-            # "ALTER TABLE trades ADD COLUMN notes TEXT DEFAULT ''",
-        ],
+        [],
     ),
     (
         3,
         "Add last_sync_at to settings for accurate sync tracking",
         [
-            "ALTER TABLE settings ADD COLUMN last_sync_at DATETIME",
+            "ALTER TABLE settings ADD COLUMN last_sync_at TIMESTAMP",
         ],
     ),
     (
         4,
         "Add account_id for multi-account isolation; name existing default account",
         [
-            # Add account_id to all data tables (default='default' preserves existing data)
             "ALTER TABLE trades ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default'",
             "ALTER TABLE account_equity ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default'",
             "ALTER TABLE asset_board_items ADD COLUMN account_id TEXT NOT NULL DEFAULT 'default'",
-            # Give the legacy 'default' settings row a display name
             "UPDATE settings SET account_name = 'Account 1' WHERE id = 'default' AND (account_name IS NULL OR account_name = '')",
         ],
     ),
@@ -69,33 +65,22 @@ MIGRATIONS = [
     ),
     (
         6,
-        "Fix UNIQUE constraint on account_equity.date for multi-account",
+        "Ensure UNIQUE(account_id, date) on account_equity",
         [
-            "CREATE TABLE account_equity_new ("
-            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "  account_id TEXT NOT NULL DEFAULT 'default',"
-            "  date DATE NOT NULL,"
-            "  total_equity REAL NOT NULL,"
-            "  cash_balance REAL,"
-            "  securities_value REAL,"
-            "  unrealized_pnl REAL,"
-            "  realized_pnl REAL,"
-            "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "  UNIQUE(account_id, date)"
-            ");",
-            "INSERT INTO account_equity_new (id, account_id, date, total_equity, cash_balance, securities_value, unrealized_pnl, realized_pnl, created_at) SELECT id, account_id, date, total_equity, cash_balance, securities_value, unrealized_pnl, realized_pnl, created_at FROM account_equity;",
-            "DROP TABLE account_equity;",
-            "ALTER TABLE account_equity_new RENAME TO account_equity;",
-            "CREATE INDEX ix_account_equity_date ON account_equity (date);",
-            "CREATE INDEX ix_account_equity_account_id ON account_equity (account_id);"
+            # Drop legacy UNIQUE(date) constraint from SQLite-era schema if present.
+            "ALTER TABLE account_equity DROP CONSTRAINT IF EXISTS account_equity_date_key",
+            # Add composite UNIQUE. If it already exists (e.g. from create_all or re-run),
+            # the per-statement savepoint swallows the duplicate_object error.
+            "ALTER TABLE account_equity ADD CONSTRAINT account_equity_account_id_date_key UNIQUE (account_id, date)",
+            # Indexes — idempotent via IF NOT EXISTS.
+            "CREATE INDEX IF NOT EXISTS ix_account_equity_date ON account_equity (date)",
+            "CREATE INDEX IF NOT EXISTS ix_account_equity_account_id ON account_equity (account_id)",
         ],
     ),
     (
         7,
         "Add user_id to all tables for multi-user isolation (default='system' preserves existing data)",
         [
-            # Each table gets a user_id column with DEFAULT 'system' so existing local data
-            # is preserved and automatically attributed to the legacy 'system' user.
             "ALTER TABLE trades ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
             "ALTER TABLE settings ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
             "ALTER TABLE account_equity ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
@@ -106,11 +91,26 @@ MIGRATIONS = [
 ]
 
 
+def _parse_add_column(sql: str) -> tuple[str, str] | None:
+    """Extract (table_name, column_name) from an ALTER TABLE ... ADD COLUMN ... statement."""
+    match = re.match(
+        r"\s*alter\s+table\s+(\S+)\s+add\s+column\s+(\S+)",
+        sql,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
 def _column_exists(connection, table_name: str, column_name: str) -> bool:
-    """Check if a column already exists in a table (SQLite-specific)."""
-    result = connection.execute(text(f"PRAGMA table_info({table_name})"))
-    columns = [row[1] for row in result.fetchall()]
-    return column_name in columns
+    """Return True if `column_name` exists in `table_name`. Dialect-agnostic via SQLAlchemy inspect."""
+    try:
+        inspector = inspect(connection)
+        existing = {c["name"].lower() for c in inspector.get_columns(table_name)}
+        return column_name.lower() in existing
+    except Exception:
+        return False
 
 
 def _get_current_version(connection) -> int:
@@ -122,7 +122,6 @@ def _get_current_version(connection) -> int:
         row = result.fetchone()
         return row[0] if row else 0
     except Exception:
-        # Table doesn't exist yet
         return 0
 
 
@@ -142,8 +141,9 @@ def run_migrations(connection) -> int:
     Run all pending migrations synchronously within a connection.
     Returns the number of migrations applied.
 
-    This function is designed to be called via `conn.run_sync(run_migrations)`
-    inside an async SQLAlchemy context.
+    Designed to be called via `conn.run_sync(run_migrations)` inside an async
+    SQLAlchemy context. Uses per-statement savepoints so duplicate-object errors
+    on idempotent re-runs don't abort the outer transaction.
     """
     _ensure_version_table(connection)
     current_version = _get_current_version(connection)
@@ -156,24 +156,31 @@ def run_migrations(connection) -> int:
         logger.info("Applying migration v%d: %s", version, description)
 
         for sql in statements:
-            # For ALTER TABLE ADD COLUMN, check if column already exists
-            # to make migrations idempotent (safe to re-run).
-            if "ADD COLUMN" in sql.upper():
-                parts = sql.upper().split("ADD COLUMN")
-                table_part = parts[0].replace("ALTER TABLE", "").strip()
-                col_part = parts[1].strip().split()[0]
-                if _column_exists(connection, table_part, col_part.lower()):
-                    logger.debug("Column %s.%s already exists, skipping", table_part, col_part)
+            # Skip ADD COLUMN early if the column is already present (common when
+            # create_all has built the latest schema and older migrations are replayed).
+            parsed = _parse_add_column(sql)
+            if parsed is not None:
+                table, column = parsed
+                if _column_exists(connection, table, column):
+                    logger.debug("Column %s.%s already exists, skipping", table, column)
                     continue
 
             try:
-                connection.execute(text(sql))
+                with connection.begin_nested():
+                    connection.execute(text(sql))
             except Exception as e:
-                logger.warning("Migration v%d statement skipped (may already exist): %s", version, e)
+                # Savepoint is already rolled back by begin_nested's context manager.
+                logger.warning(
+                    "Migration v%d statement skipped (likely already applied): %s",
+                    version, e,
+                )
 
-        # Record the migration as applied
+        # Record the migration as applied. Idempotent via ON CONFLICT.
         connection.execute(
-            text("INSERT OR REPLACE INTO schema_version (version, description) VALUES (:v, :d)"),
+            text(
+                "INSERT INTO schema_version (version, description) VALUES (:v, :d) "
+                "ON CONFLICT (version) DO UPDATE SET description = EXCLUDED.description"
+            ),
             {"v": version, "d": description},
         )
         applied += 1
