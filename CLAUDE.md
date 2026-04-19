@@ -9,7 +9,7 @@ SaaS comercial para traders de Interactive Brokers. Seguridad, aislamiento multi
 - **DB**: PostgreSQL en dev (docker-compose) y prod (Railway). `DATABASE_URL` es obligatorio — el backend no arranca sin él.
 - **Auth**: JWT HS256 `python-jose`, bcrypt `passlib`. Access 15m, refresh 7d con rotation.
 - **Cripto**: `cryptography.fernet` para Flex Token IBKR en reposo.
-- **Deploy**: Railway.app. `backend/Dockerfile` + `docker-compose.yml`.
+- **Deploy**: Railway.app. `Dockerfile` (raíz, multi-stage) + `railway.json`. CI en `.github/workflows/ci.yml`.
 
 ## Arquitectura de dos productos
 
@@ -17,6 +17,17 @@ SaaS comercial para traders de Interactive Brokers. Seguridad, aislamiento multi
 2. **TJ Connector** (`tj-connector/`): binario PyInstaller en máquina del usuario. Micro-API en `http://127.0.0.1:8765` (solo localhost). Datos live **jamás** tocan el servidor.
 
 Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Connector. Ausente → UI de descarga.
+
+## Estado del proyecto
+
+| Fase | Estado | Notas |
+|------|--------|-------|
+| Fase 1 — Reorganización de archivos | ✅ Completada | Scripts, docs, tests reubicados |
+| Fase 2 — PostgreSQL único | ✅ Completada | SQLite eliminado; docker-compose con Postgres 16 |
+| Fase 3 — Deploy Railway | ✅ Completada | Dockerfile multi-stage, railway.json, GitHub Actions CI |
+| Fase 4 — Distribución TJ Connector | ⏳ Pendiente | Descarga del Connector desde la web app |
+
+Ver `docs/plan.md` para el roadmap detallado.
 
 ## Reglas no-negociables
 
@@ -31,12 +42,40 @@ Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Conne
 9. **No silenciar errores**: `try/except` sin manejo → re-lanzar. Sin `except Exception: pass`.
 10. **Sin pywebview**: eliminado. `scripts/run_app.py` usa `webbrowser.open()`.
 
+## Aislamiento multi-tenant — estado por router
+
+| Router | user_id filtrado | Notas |
+|--------|-----------------|-------|
+| `routers/trades.py` | ✅ | Completo |
+| `routers/metrics.py` | ✅ | Completo |
+| `routers/accounts.py` | ✅ | rename/delete con ownership check |
+| `routers/settings.py` | ✅ | `get_or_create_settings(db, account_id, user_id)` — siempre los 3 args |
+| `routers/sync.py` | ✅ | Trade, AccountEquity, Settings, purge, last-sync filtran user_id |
+| `routers/assets.py` | ⚠️ Pendiente | Riesgo MEDIO — parchear en Fase 4 o antes |
+
+Patrón correcto en cualquier endpoint:
+
+```python
+user_id = get_user_id_from_request(request) or "system"
+result = await db.execute(
+    select(Model).where(Model.account_id == account_id, Model.user_id == user_id)
+)
+```
+
+`"system"` es el fallback para datos legacy pre-autenticación. Nunca omitir el filtro en tablas con `user_id`.
+
+## Modelos con columna user_id (migración v7)
+
+Trade · Settings · AccountEquity · AssetBoardItem · BoardNote
+
+Todos filtran con `.where(Model.user_id == user_id)`. Si se añade un modelo con datos privados de usuario, debe incluir `user_id` desde el primer commit y una migración correspondiente.
+
 ## Archivos críticos
 
 | Archivo | Qué hace | Cuándo tocar |
 |---------|----------|--------------|
 | `backend/main.py` | App FastAPI, middleware, CORS, mount estático | Config global / rutas exentas |
-| `backend/auth_middleware.py` | Valida JWT, inyecta `user_id` | Lista de rutas exentas |
+| `backend/auth_middleware.py` | Valida JWT, inyecta `user_id` en `request.state` | Lista de rutas exentas |
 | `backend/auth_utils.py` | JWT emisión/verificación, bcrypt | Política de tokens |
 | `backend/routers/auth.py` | `/register /login /refresh /me` | Features de auth |
 | `backend/crypto.py` | Fernet encrypt/decrypt | **Nunca** sin migración |
@@ -53,6 +92,9 @@ Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Conne
 | `frontend/src/lib/i18n.tsx` | Traducciones ES/EN | Todo texto user-facing |
 | `tj-connector/api.py` | Micro-API 127.0.0.1:8765 | Endpoints del Connector |
 | `tj-connector/ibkr_bridge.py` | Conexión TWS ib_insync | **Solo lectura** |
+| `Dockerfile` (raíz) | Multi-stage: node→frontend dist + python backend | Railway deploy |
+| `railway.json` | Builder DOCKERFILE + healthcheck `/api/health` | Railway config |
+| `.github/workflows/ci.yml` | Test (Postgres 16) + Docker build | CI/CD |
 
 ## Desarrollo local
 
@@ -64,11 +106,29 @@ cd tj-connector && python main.py   # opcional, datos live TWS
 
 **Env vars** (`DATABASE_URL`, `JWT_SECRET`, `FERNET_KEY`, `ENVIRONMENT`, `ALLOWED_ORIGINS`). Ver `.env.example`. Nunca commitear `.env`.
 
+## Deploy Railway
+
+`Dockerfile` raíz: stage 1 (`node:20-alpine`) build frontend → stage 2 (`python:3.12-slim`) backend + `COPY --from=frontend-builder /frontend/dist /frontend/dist`. `get_frontend_path()` en `main.py:24` resuelve a `/frontend/dist` cuando WORKDIR=/app.
+
+Variables Railway (configurar manualmente en el dashboard tras primer deploy):
+
+| Variable | Cómo generar |
+|----------|-------------|
+| `DATABASE_URL` | Auto-inyectada por addon Postgres |
+| `JWT_SECRET` | `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `FERNET_KEY` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `ALLOWED_ORIGINS` | Dominio real sin barra final (ej. `https://app.tudominio.com`) |
+| `ENVIRONMENT` | `production` |
+
+GitHub Actions CI requiere secret `FERNET_KEY_CI` configurado en Settings → Secrets del repo.
+
 ## Patrones clave
 
-**Nueva migración**: `if current_version < N: ALTER TABLE ... ADD COLUMN ... DEFAULT` + incrementar `SCHEMA_VERSION`. Verificar idempotencia.
+**Nueva migración**: `if current_version < N: ALTER TABLE ... ADD COLUMN ... DEFAULT` + incrementar `SCHEMA_VERSION`. Verificar idempotencia. Siempre incluir `user_id DEFAULT 'system'` en tablas nuevas con datos de usuario.
 
-**Nuevo router**: `APIRouter(prefix="/api/foo")` → registrar en `main.py` → cada endpoint con `user_id: str = Depends(get_current_user_id)`. Si exento de auth → agregar a `auth_middleware.py` con justificación.
+**Settings router**: `get_or_create_settings(db, account_id, user_id)` — siempre los tres argumentos. Nunca llamar sin `user_id` o filtrará datos cross-tenant.
+
+**Nuevo router**: `APIRouter(prefix="/api/foo")` → registrar en `main.py` → cada endpoint con `Request` param → `get_user_id_from_request(request)`. Si exento de auth → agregar a `auth_middleware.py` con justificación.
 
 **Frontend**: TanStack Query para estado servidor. Query keys: `['trades', accountId, userId]`. Traducir en `i18n.tsx`.
 
@@ -83,10 +143,11 @@ cd tj-connector && python main.py   # opcional, datos live TWS
 - Modificar `trades.py`, `metrics.py`, `sync.py` sin instrucción explícita.
 - Cambiar `crypto.py` sin migración (invalida todos los tokens).
 - Agregar deps sin justificación (agranda el build del Connector).
+- Omitir `.where(Model.user_id == user_id)` en queries sobre tablas con esa columna.
 
 ## Seguridad — checklist antes de cada PR
 
-- [ ] Queries con `user_id` filtran por él.
+- [ ] Queries con `user_id` filtran por él (correr `tenant-isolation-check`).
 - [ ] Endpoints nuevos sin auth → justificados en `auth_middleware.py`.
 - [ ] Connector: cero escrituras IBKR.
 - [ ] Sin logs de tokens, passwords, JWT, emails completos.
@@ -105,6 +166,12 @@ cd tj-connector && python main.py   # opcional, datos live TWS
 | CORS 403 prod | `ALLOWED_ORIGINS` con espacios | Separar por coma sin espacios |
 | 401 en todos endpoints | Middleware mal configurado | Revisar lista exentos en `auth_middleware.py` |
 | Build PyInstaller falla | TS vars no usadas | Limpiar antes de `tsc` |
+| `AttributeError: has no attribute 'user_id'` | Columna en DB pero no en ORM | Verificar `models.py` declara la columna |
+| `UniqueViolation` en settings_pkey | Dos users crean `id="default"` | `accounts.py` genera UUID para users reales |
+| `bcrypt` error en login/registro | bcrypt>=4.1 incompatible con passlib 1.7.4 | Pin `bcrypt==4.0.1` en requirements |
+| `FERNET_KEY` inválida en Railway | Variable no configurada o mal copiada | Generar con Fernet.generate_key(), pegar sin espacios |
+| Frontend muestra pantalla en blanco en prod | `dist/` no copiado en Docker stage 2 | Verificar `COPY --from=frontend-builder /frontend/dist /frontend/dist` |
+| `email-validator` ImportError al arrancar | Pydantic EmailStr requiere la lib | Está en `backend/requirements.txt` — verificar pip install |
 
 ## Convenciones
 
@@ -114,6 +181,14 @@ cd tj-connector && python main.py   # opcional, datos live TWS
 - PRs auth/crypto/connector: correr `security-reviewer-tj` antes de merge.
 - PRs con `models.py`: incluir diff de `migrations.py` en el mismo commit.
 - Logging: `INFO` prod / `DEBUG` dev. Ofuscar emails (`u***@dominio.com`).
+
+## Pendientes de seguridad (antes de 50 usuarios)
+
+`routers/assets.py` — AssetBoardItem y BoardNote se consultan sin filtro `user_id`. Riesgo MEDIO: solo se activa si dos usuarios diferentes tienen el mismo `account_id` (improbable con UUIDs, imposible con el sistema actual). Parchear antes de invitar usuarios externos.
+
+`routers/sync.py` `/demo-data` — endpoint DEV-only sin `user_id`; protegido por `TRADING_JOURNAL_DEV` env var. No crítico para producción.
+
+`routers/metrics.py` — revisar que el filtro `if user_id:` sea siempre `if user_id` (no `if user_id is not None`) para evitar bypass con user_id vacío.
 
 ## Referencias
 

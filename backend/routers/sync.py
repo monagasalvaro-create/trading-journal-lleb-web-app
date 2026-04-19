@@ -321,9 +321,11 @@ def parse_nav_from_xml(xml_content: str) -> List[dict]:
         return []
 
 
-async def get_stored_credentials(db: AsyncSession, account_id: str) -> Tuple[Optional[str], Optional[str]]:
-    """Get stored IBKR credentials from Settings for the given account."""
-    result = await db.execute(select(Settings).where(Settings.id == account_id))
+async def get_stored_credentials(db: AsyncSession, account_id: str, user_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """Get stored IBKR credentials from Settings for the given account + user."""
+    result = await db.execute(
+        select(Settings).where(Settings.id == account_id, Settings.user_id == user_id)
+    )
     settings = result.scalar_one_or_none()
 
     if settings:
@@ -349,7 +351,7 @@ async def sync_ibkr(
     query_id = body.query_id if body and body.query_id else None
 
     if not token or not query_id:
-        stored_token, stored_query_id = await get_stored_credentials(db, account_id)
+        stored_token, stored_query_id = await get_stored_credentials(db, account_id, user_id or "system")
         token = token or stored_token
         query_id = query_id or stored_query_id
 
@@ -433,9 +435,13 @@ async def sync_ibkr(
                 account_id=account_id
             )
 
-            # Scope lookup to this account to prevent cross-account collisions
+            # Scope lookup to this account + user to prevent cross-tenant collisions
             result = await db.execute(
-                select(Trade).where(Trade.id == trade_id, Trade.account_id == account_id)
+                select(Trade).where(
+                    Trade.id == trade_id,
+                    Trade.account_id == account_id,
+                    Trade.user_id == (user_id or "system"),
+                )
             )
             existing_trade = result.scalar_one_or_none()
 
@@ -477,10 +483,11 @@ async def sync_ibkr(
         nav_imported = 0
         
         for nav_record in nav_data:
-            # Check if record exists for this account + date
+            # Check if record exists for this account + user + date
             result = await db.execute(
                 select(AccountEquity).where(
                     AccountEquity.account_id == account_id,
+                    AccountEquity.user_id == (user_id or "system"),
                     AccountEquity.date == nav_record["date"],
                 )
             )
@@ -495,6 +502,7 @@ async def sync_ibkr(
             else:
                 new_nav = AccountEquity(
                     account_id=account_id,
+                    user_id=user_id or "system",
                     date=nav_record["date"],
                     total_equity=nav_record["total_equity"],
                     cash_balance=nav_record.get("cash_balance"),
@@ -506,12 +514,14 @@ async def sync_ibkr(
                 nav_imported += 1
         
         # Step 6: Record sync timestamp for this account
-        result = await db.execute(select(Settings).where(Settings.id == account_id))
+        result = await db.execute(
+            select(Settings).where(Settings.id == account_id, Settings.user_id == (user_id or "system"))
+        )
         settings_row = result.scalar_one_or_none()
         if settings_row:
             settings_row.last_sync_at = datetime.utcnow()
         else:
-            db.add(Settings(id=account_id, account_name="Account 1", last_sync_at=datetime.utcnow()))
+            db.add(Settings(id=account_id, account_name="Account 1", user_id=user_id or "system", last_sync_at=datetime.utcnow()))
             
         try:
             await db.commit()
@@ -536,29 +546,31 @@ async def sync_ibkr(
 
 @router.get("/last-sync")
 async def get_last_sync(
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the timestamp of the most recent sync operation for the active account."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request) or "system"
 
     result = await db.execute(
         select(Trade.entry_date)
-        .where(Trade.account_id == account_id)
+        .where(Trade.account_id == account_id, Trade.user_id == user_id)
         .order_by(Trade.entry_date.desc())
         .limit(1)
     )
     last_trade_date = result.scalar_one_or_none()
 
     result = await db.execute(
-        select(Settings.last_sync_at).where(Settings.id == account_id)
+        select(Settings.last_sync_at).where(Settings.id == account_id, Settings.user_id == user_id)
     )
     last_sync_at = result.scalar_one_or_none()
 
     if not last_sync_at:
         result = await db.execute(
             select(Trade.created_at)
-            .where(Trade.account_id == account_id)
+            .where(Trade.account_id == account_id, Trade.user_id == user_id)
             .order_by(Trade.created_at.desc())
             .limit(1)
         )
@@ -574,20 +586,24 @@ async def get_last_sync(
 
 @router.delete("/purge")
 async def purge_trading_data(
+    request: Request,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete all trades and NAV records for the active account (clean re-sync)."""
     account_id = x_account_id or "default"
+    user_id = get_user_id_from_request(request) or "system"
 
     trades_result = await db.execute(
-        delete(Trade).where(Trade.account_id == account_id)
+        delete(Trade).where(Trade.account_id == account_id, Trade.user_id == user_id)
     )
     nav_result = await db.execute(
-        delete(AccountEquity).where(AccountEquity.account_id == account_id)
+        delete(AccountEquity).where(AccountEquity.account_id == account_id, AccountEquity.user_id == user_id)
     )
 
-    result = await db.execute(select(Settings).where(Settings.id == account_id))
+    result = await db.execute(
+        select(Settings).where(Settings.id == account_id, Settings.user_id == user_id)
+    )
     settings_row = result.scalar_one_or_none()
     if settings_row:
         settings_row.last_sync_at = None

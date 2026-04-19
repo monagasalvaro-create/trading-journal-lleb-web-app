@@ -77,10 +77,14 @@ async def create_account(data: AccountCreate, request: Request, db: AsyncSession
 async def rename_account(
     account_id: str,
     data: AccountRename,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Rename an existing trading account."""
-    result = await db.execute(select(Settings).where(Settings.id == account_id))
+    user_id = get_user_id_from_request(request) or "system"
+    result = await db.execute(
+        select(Settings).where(Settings.id == account_id, Settings.user_id == user_id)
+    )
     account = result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -93,14 +97,16 @@ async def rename_account(
 
 
 @router.delete("/{account_id}")
-async def delete_account(account_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_account(account_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Delete an account and all its associated trading data.
     board_notes are deliberately preserved as user annotations.
     Cannot delete the last remaining account.
     """
-    # Prevent deleting the last account
-    count_result = await db.execute(select(Settings))
+    user_id = get_user_id_from_request(request) or "system"
+
+    # Prevent deleting the last account (scoped to this user)
+    count_result = await db.execute(select(Settings).where(Settings.user_id == user_id))
     all_accounts = count_result.scalars().all()
     if len(all_accounts) <= 1:
         raise HTTPException(
@@ -108,7 +114,9 @@ async def delete_account(account_id: str, db: AsyncSession = Depends(get_db)):
             detail="Cannot delete the last account. Create another account first."
         )
 
-    result = await db.execute(select(Settings).where(Settings.id == account_id))
+    result = await db.execute(
+        select(Settings).where(Settings.id == account_id, Settings.user_id == user_id)
+    )
     account = result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
