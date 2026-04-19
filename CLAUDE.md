@@ -1,10 +1,10 @@
 # Trading Journal Pro — Guía para Claude Code
 
-Aplicación comercial (SaaS) para traders de Interactive Brokers. Producto en venta, no experimento. Cada decisión de código debe considerar seguridad, aislamiento multi-tenant y la promesa explícita de `privacy_disclosure.md.resolved`: la app **nunca** puede operar en cuentas de usuarios.
+Aplicación comercial (SaaS) para traders de Interactive Brokers. Producto en venta, no experimento. Cada decisión de código debe considerar seguridad, aislamiento multi-tenant y la promesa explícita de `docs/privacy_disclosure.md.resolved`: la app **nunca** puede operar en cuentas de usuarios.
 
 ## Stack
 
-- **Backend**: FastAPI, Python 3.12.12 (NO subir versión — ver `TECHNICAL_LOG.md`), SQLAlchemy async, Uvicorn con `--loop asyncio` (NO `uvloop`).
+- **Backend**: FastAPI, Python 3.12.12 (NO subir versión — ver `docs/TECHNICAL_LOG.md`), SQLAlchemy async, Uvicorn con `--loop asyncio` (NO `uvloop`).
 - **Frontend**: React 18 + TypeScript + Vite + TanStack Query 5 + Radix UI + Tailwind.
 - **DB**: SQLite en dev (`sqlite+aiosqlite`), PostgreSQL en producción (`postgresql+asyncpg`). Misma URL via env.
 - **Auth**: JWT HS256 vía `python-jose`, hash `passlib[bcrypt]`. Access 15m, refresh 7d con rotation.
@@ -25,12 +25,12 @@ La web app detecta el Connector con `GET http://localhost:8765/status` con timeo
 2. **X-Account-ID sigue intacto**: el sistema multi-cuenta dentro de un mismo usuario ya funciona y está probado. No reestructurar ni renombrar.
 3. **Migraciones aditivas**: sumar columnas con `DEFAULT` en `migrations.py` al final, nunca reescribir tablas ni modificar migraciones existentes. `user_id` legacy = `'system'`.
 4. **Flex Token encriptado siempre**: pasar por `crypto.encrypt()` antes de guardar, `crypto.decrypt()` al leer. Nunca loggear el token en claro.
-5. **TJ Connector es read-only**: jamás agregar llamadas a `placeOrder`, `cancelOrder`, `modifyOrder`, `reqExecutions` que escriban, ni cualquier API de escritura de `ib_insync`. Esta es la promesa de `privacy_disclosure.md.resolved` y es una barrera de seguridad estructural.
+5. **TJ Connector es read-only**: jamás agregar llamadas a `placeOrder`, `cancelOrder`, `modifyOrder`, `reqExecutions` que escriban, ni cualquier API de escritura de `ib_insync`. Esta es la promesa de `docs/privacy_disclosure.md.resolved` y es una barrera de seguridad estructural.
 6. **Connector escucha SOLO `127.0.0.1`**: nunca `0.0.0.0`, nunca rutas externas. CORS del Connector estricto al dominio web app.
 7. **Cliente API único**: frontend usa `frontend/src/lib/api.ts` (servidor) o `frontend/src/lib/connector.ts` (Connector local). Nunca `fetch` directo desde componentes.
 8. **Early return**: validaciones primero, camino feliz al final. No anidar if/else profundos.
 9. **No silenciar errores**: si un `try/except` no puede manejar el error, lo re-lanza. Sin `except Exception: pass`.
-10. **Pywebview está eliminado**: no reintroducir. `run_app.py` abre navegador con `webbrowser.open()`.
+10. **Pywebview está eliminado**: no reintroducir. `scripts/run_app.py` abre navegador con `webbrowser.open()`.
 
 ## Archivos críticos — contexto rápido
 
@@ -91,8 +91,8 @@ cd tj-connector && python main.py
 2. Estado servidor: TanStack Query (`useQuery`/`useMutation`). Nunca fetch dentro de `useEffect`.
 3. Traducciones en `frontend/src/lib/i18n.tsx` (ES/EN).
 
-### Cuando tocar `run_app.py`
-Solo para desarrollo/empaquetado local. En producción Railway no lo usa — corre `uvicorn main:app` directo.
+### Cuando tocar `scripts/run_app.py`
+Solo para desarrollo/empaquetado local (bundle PyInstaller). En producción Railway no lo usa — corre `uvicorn main:app` directo.
 
 ## Qué NO hacer
 
@@ -187,14 +187,14 @@ Antes de promover a producción:
 - [ ] `ALLOWED_ORIGINS` configurado al dominio real en Railway.
 - [ ] `ENVIRONMENT=production` → CORS y logging restrictivos.
 - [ ] Variables `JWT_SECRET` y `FERNET_KEY` rotables pero NO cambiadas en este release (cambiarlas invalida sesiones y tokens).
-- [ ] Si tocaste el Connector: firmado y notarizado en macOS (`sign-and-export-macos.md`), antivirus friendly en Windows.
+- [ ] Si tocaste el Connector: firmado y notarizado en macOS (`docs/sign-and-export-macos.md`), antivirus friendly en Windows.
 
 ## Referencias
 
-- `TECHNICAL_LOG.md` — historia de decisiones (Python 3.12, uvloop, codesign macOS).
-- `ai_instructions.md.resolved` — plan arquitectónico de la transformación pywebview→web.
-- `privacy_disclosure.md.resolved` — promesa de seguridad al usuario. Lectura obligatoria antes de tocar Connector o auth.
-- `sign-and-export-macos.md` — flujo de firmado del Connector para macOS.
+- `docs/TECHNICAL_LOG.md` — historia de decisiones (Python 3.12, uvloop, codesign macOS).
+- `docs/ai_instructions.md.resolved` — plan arquitectónico de la transformación pywebview→web.
+- `docs/privacy_disclosure.md.resolved` — promesa de seguridad al usuario. Lectura obligatoria antes de tocar Connector o auth.
+- `docs/sign-and-export-macos.md` — flujo de firmado del Connector para macOS.
 - `.env.example` — variables requeridas.
 - `.claude/skills/` — skills custom del proyecto (tenant-isolation-check, ibkr-safety-audit, migration-writer, release-connector).
 - `.claude/agents/` — subagents especializados (security-reviewer-tj, ibkr-integration-reviewer).
