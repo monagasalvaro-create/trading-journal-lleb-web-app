@@ -26,6 +26,7 @@ class Trade(Base):
     __tablename__ = "trades"
 
     id = Column(String, primary_key=True, index=True)
+    user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     account_id = Column(String(50), nullable=False, default="default", index=True)  # Multi-account isolation
     ticker = Column(String(20), nullable=False, index=True)
     underlying_symbol = Column(String(20), nullable=True)  # For options
@@ -102,6 +103,7 @@ class AccountEquity(Base):
     __tablename__ = "account_equity"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     account_id = Column(String(50), nullable=False, default="default", index=True)  # Multi-account isolation
     date = Column(Date, nullable=False, index=True)
     total_equity = Column(Float, nullable=False)  # Net Liquidation Value
@@ -130,6 +132,7 @@ class Settings(Base):
     __tablename__ = "settings"
 
     id = Column(String(50), primary_key=True)  # UUID or 'default'
+    user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     flex_token = Column(String(500), nullable=True)  # IBKR Flex Token
     query_id = Column(String(50), nullable=True)  # IBKR Flex Query ID
     account_name = Column(String(100), nullable=False, default="Account 1")  # User-facing display name
@@ -168,6 +171,7 @@ class AssetBoardItem(Base):
     __tablename__ = "asset_board_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     account_id = Column(String(50), nullable=False, default="default", index=True)  # Multi-account isolation
     symbol = Column(String(20), nullable=False)
     board_type = Column(String(20), nullable=False)  # 'portfolio' or 'options'
@@ -200,6 +204,7 @@ class BoardNote(Base):
     __tablename__ = "board_notes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     board_type = Column(String(20), nullable=False)  # 'portfolio' or 'options'
     date = Column(Date, nullable=False, index=True)
     content = Column(String, default="")

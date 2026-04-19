@@ -41,9 +41,13 @@ async def list_accounts(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(query.order_by(Settings.updated_at.asc()))
     accounts = result.scalars().all()
 
-    # If no accounts exist yet, create the default one
+    # If no accounts exist yet, create the default one.
+    # Legacy 'system' user keeps id='default' for backwards compatibility with pre-multi-tenant data.
+    # Real users get a fresh UUID so the primary key doesn't collide across tenants.
     if not accounts:
-        default = Settings(id="default", account_name="Account 1", user_id=user_id or "system")
+        effective_user_id = user_id or "system"
+        default_id = "default" if effective_user_id == "system" else str(uuid.uuid4())
+        default = Settings(id=default_id, account_name="Account 1", user_id=effective_user_id)
         db.add(default)
         await db.commit()
         await db.refresh(default)
