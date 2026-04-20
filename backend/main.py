@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from database import init_db
-from routers import trades, metrics, sync, settings, assets, strike_calculator, portfolio, accounts
+from routers import trades, metrics, sync, settings, assets, strike_calculator, portfolio, accounts, downloads
 from routers import auth as auth_router
 from auth_middleware import JWTAuthMiddleware
 
@@ -85,6 +85,7 @@ app.include_router(assets.router)
 app.include_router(strike_calculator.router)
 app.include_router(portfolio.router)
 app.include_router(accounts.router)
+app.include_router(downloads.router)
 
 
 @app.get("/api/health")

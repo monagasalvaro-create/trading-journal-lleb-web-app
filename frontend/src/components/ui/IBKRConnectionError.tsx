@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Info, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Info, AlertCircle, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,23 @@ export function IBKRConnectionError({ error, className }: IBKRConnectionErrorPro
                             <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                                 {t('error.ibkrDisconnectedDescription')}
                             </p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-border/40">
+                            <a
+                                href="/api/downloads/connector/latest?platform=mac"
+                                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 rounded-md transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                {t('error.downloadConnectorMac')}
+                            </a>
+                            <a
+                                href="/api/downloads/connector/latest?platform=win"
+                                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 rounded-md transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                {t('error.downloadConnectorWin')}
+                            </a>
                         </div>
                         
                         {error && (

@@ -28,6 +28,7 @@ _EXEMPT_PREFIXES = (
     "/api/auth/register",
     "/api/auth/refresh",
     "/api/health",
+    "/api/downloads/",
     "/assets/",
 )
 
