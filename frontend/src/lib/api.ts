@@ -333,7 +333,28 @@ export const strikeCalculatorApi = {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.detail || "Could not connect to IBKR");
             }
-            return await res.json();
+            const data = await res.json();
+            if (!data.success) {
+                return {
+                    success: false,
+                    symbol: symbol.toUpperCase(),
+                    price: null, iv_annual: null, iv_daily: null, deviation: null, strike_call: null, strike_put: null,
+                    message: data.message || "Calculation failed"
+                };
+            }
+            // Map the new micro-API format back to the expected legacy frontend format
+            const iv_annual = data.implied_volatility ? data.implied_volatility / 100 : 0;
+            return {
+                success: true,
+                symbol: data.symbol,
+                price: data.current_price,
+                iv_annual: iv_annual,
+                iv_daily: iv_annual / Math.sqrt(252),
+                deviation: data.weekly_move,
+                strike_call: data.strikes?.["1sd_weekly_up"] || null,
+                strike_put: data.strikes?.["1sd_weekly_down"] || null,
+                message: null
+            };
         } catch (e: any) {
             throw new ApiError(500, `Could not connect to IBKR: ${e.message || "TJ Connector is off"}`);
         }
@@ -349,7 +370,40 @@ export const portfolioApi = {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.detail || "Could not connect to IBKR");
             }
-            return await res.json();
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.message || "TWS Portfolio fetch failed");
+            }
+
+            // Transform raw connector payload to shape expected by Portfolio.tsx
+            const mappedPositions = (data.positions || []).map((p: any) => {
+                const cp = p.marketValue && p.position ? p.marketValue / p.position : 0;
+                return {
+                    conId: 0,
+                    symbol: p.symbol,
+                    secType: p.secType,
+                    position: p.position,
+                    avgCost: p.averageCost || p.avgCost || 0,
+                    marketPrice: Math.abs(cp),
+                    marketValue: p.marketValue || 0,
+                    unrealizedPNL: p.unrealizedPNL || 0,
+                    unrealizedPNLPercent: p.averageCost && p.averageCost !== 0 ? (p.unrealizedPNL / (p.averageCost * Math.abs(p.position))) * 100 : 0,
+                    currency: "USD"
+                };
+            });
+
+            return {
+                success: true,
+                summary: {
+                    net_liquidation: data.net_liquidation || 0,
+                    cash_balance: (data.net_liquidation || 0) - mappedPositions.reduce((acc: number, p: any) => acc + Math.abs(p.marketValue), 0),
+                    invested_capital: mappedPositions.reduce((acc: number, p: any) => acc + Math.abs(p.marketValue), 0),
+                    buying_power: data.net_liquidation || 0,
+                    currency: "USD"
+                },
+                positions: mappedPositions,
+                updated_at: new Date().toISOString()
+            };
         } catch (e: any) {
             throw new ApiError(500, `Could not connect to IBKR: ${e.message || "TJ Connector is off"}`);
         }
