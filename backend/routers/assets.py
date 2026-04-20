@@ -50,6 +50,7 @@ _STOCK_COL_WEIGHTS = {"60": 0.60, "30": 0.30, "10": 0.10}
 async def capital_allocation(
     request: Request,
     target_date: date = None,
+    net_liquidation: Optional[float] = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -74,19 +75,17 @@ async def capital_allocation(
             "error": f"Failed to read settings: {exc}",
         }
 
-    account_result = await fetch_net_liquidation(port)
-
-    if not account_result.success:
+    if net_liquidation is None:
         return {
             "net_liquidation": None,
             "stocks_pct": stocks_pct * 100,
             "options_pct": options_pct * 100,
             "segments": {},
             "options_allocation": None,
-            "error": account_result.message,
+            "error": "Client did not provide net_liquidation",
         }
 
-    net_liq = account_result.net_liquidation
+    net_liq = net_liquidation
     stocks_pool = net_liq * stocks_pct
     options_pool = net_liq * options_pct
 
@@ -288,6 +287,39 @@ async def _upsert_and_reconcile(
 
     return processed_count
 
+
+from pydantic import BaseModel, Field
+
+class SyncClientPositionsRequest(BaseModel):
+    positions: List[dict]
+
+
+@router.post("/sync-client-positions")
+async def sync_client_positions(
+    payload: SyncClientPositionsRequest,
+    request: Request,
+    target_date: date = None,
+    x_account_id: Optional[str] = Header(default="default"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Called by the frontend after it fetches live positions from the local TJ Connector.
+    Stores/reconciles them in the Railway backend securely.
+    """
+    account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
+    if target_date is None:
+        target_date = date.today()
+
+    processed_count = await _upsert_and_reconcile(db, target_date, payload.positions, account_id, user_id_str)
+    await db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Synced {processed_count} live positions from TJ Connector",
+        "source": "client_ibkr",
+        "details": payload.positions,
+    }
 
 @router.post("/sync-positions")
 async def sync_positions(

@@ -57,7 +57,7 @@ async def get_portfolio():
     Returns positions and account-level values (net liquidation, P&L).
     Requires TWS or IB Gateway to be open with API enabled.
     """
-    return await fetch_portfolio_data(port=7497)
+    return await fetch_portfolio_data()
 
 
 @app.get("/positions")
@@ -65,7 +65,7 @@ async def get_positions():
     """Open positions from TWS, including detected stop orders.
     Requires TWS or IB Gateway to be open with API enabled.
     """
-    return await fetch_open_positions(port=7497)
+    return await fetch_open_positions()
 
 
 @app.get("/strikes/{symbol}")
@@ -75,4 +75,4 @@ async def get_strikes(symbol: str):
     then computes strike levels based on historical volatility.
     Requires TWS or IB Gateway to be open with API enabled.
     """
-    return await calculate_strikes(symbol=symbol, port=7497)
+    return await calculate_strikes(symbol=symbol)

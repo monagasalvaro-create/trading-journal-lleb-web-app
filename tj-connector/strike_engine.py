@@ -10,7 +10,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-async def calculate_strikes(symbol: str, port: int = 7497) -> dict[str, Any]:
+async def calculate_strikes(symbol: str) -> dict[str, Any]:
     """Calculate option strike levels for a given symbol using ib_insync.
 
     Fetches current price and implied volatility from TWS,
@@ -18,19 +18,32 @@ async def calculate_strikes(symbol: str, port: int = 7497) -> dict[str, Any]:
     On failure, returns a structured error dict.
     """
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _calculate_strikes_sync, symbol, port)
+    return await loop.run_in_executor(None, _calculate_strikes_sync, symbol)
 
 
-def _calculate_strikes_sync(symbol: str, port: int) -> dict[str, Any]:
+def _calculate_strikes_sync(symbol: str) -> dict[str, Any]:
     """Synchronous strike calculation — runs in executor thread."""
     try:
         from ib_insync import IB, Stock
         import random
         import math
 
-        ib = IB()
-        client_id = 300 + random.randint(0, 99)
-        ib.connect("127.0.0.1", port, clientId=client_id, timeout=8, readonly=True)
+        ports_to_try = [7497, 7496, 4001, 4002]
+        
+        ib = None
+        for port in ports_to_try:
+            try:
+                ib_attempt = IB()
+                client_id = 300 + random.randint(0, 99)
+                ib_attempt.connect("127.0.0.1", port, clientId=client_id, timeout=2, readonly=True)
+                ib = ib_attempt
+                logger.info("Connected to IBKR on port %d for strikes", port)
+                break
+            except Exception:
+                continue
+                
+        if not ib:
+            return {"success": False, "symbol": symbol, "message": "Cannot connect to TWS. Ports 7497, 7496, 4001, 4002 unreachable."}
 
         try:
             contract = Stock(symbol, "SMART", "USD")

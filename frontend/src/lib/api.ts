@@ -25,6 +25,7 @@ import type {
 } from './types';
 
 const API_BASE = '/api';
+const LOCAL_CONNECTOR_URL = 'http://127.0.0.1:8765';
 
 // ─── Active Account Management ────────────────────────────────────────────────
 // Stored in localStorage so it persists across page refreshes.
@@ -325,16 +326,34 @@ export const syncApi = {
 
 // ─── Strike Calculator API ────────────────────────────────────────────────────
 export const strikeCalculatorApi = {
-    calculate: (symbol: string): Promise<StrikeCalculatorResult> =>
-        fetchApi<StrikeCalculatorResult>('/strike-calculator/calculate', {
-            method: 'POST',
-            body: JSON.stringify({ symbol }),
-        }),
+    calculate: async (symbol: string): Promise<StrikeCalculatorResult> => {
+        try {
+            const res = await fetch(`${LOCAL_CONNECTOR_URL}/strikes/${symbol}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || "Could not connect to IBKR");
+            }
+            return await res.json();
+        } catch (e: any) {
+            throw new ApiError(500, `Could not connect to IBKR: ${e.message || "TJ Connector is off"}`);
+        }
+    }
 };
 
 // ─── Portfolio API ────────────────────────────────────────────────────────────
 export const portfolioApi = {
-    getLivePortfolio: (): Promise<any> => fetchApi<any>('/portfolio/live'),
+    getLivePortfolio: async (): Promise<any> => {
+        try {
+            const res = await fetch(`${LOCAL_CONNECTOR_URL}/portfolio`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || "Could not connect to IBKR");
+            }
+            return await res.json();
+        } catch (e: any) {
+            throw new ApiError(500, `Could not connect to IBKR: ${e.message || "TJ Connector is off"}`);
+        }
+    }
 };
 
-export { ApiError };
+export { ApiError, fetchApi };

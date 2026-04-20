@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { formatOptionSymbol } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { strikeCalculatorApi } from '@/lib/api';
+import { strikeCalculatorApi, fetchApi } from '@/lib/api';
 import { ConfirmDialog, AlertDialog } from '@/components/ui/ConfirmDialog';
 import {
     DndContext,
@@ -48,6 +48,30 @@ const getUrl = (path: string = '') => {
     // ensure path doesn't start with slash
     const sub = path.startsWith('/') ? path.slice(1) : path;
     return `${API_BASE}${sub}`;
+};
+
+const authFetch = async (url: string, options: RequestInit = {}) => {
+    try {
+        // fetchApi internal base is '/api'. If url contains '/api', remove it to avoid '/api/api/...'
+        const endpoint = url.startsWith('/api') ? url.slice(4) : url;
+        const data = await fetchApi(endpoint, options);
+        return {
+            ok: true,
+            status: 200,
+            json: async () => data,
+            text: async () => JSON.stringify(data)
+        } as any;
+    } catch (e: any) {
+        if (e.name === 'ApiError') {
+            return {
+                ok: false,
+                status: e.status,
+                json: async () => ({ detail: e.message }),
+                text: async () => e.message
+            } as any;
+        }
+        throw e;
+    }
 };
 
 // --- Date Helpers ---
@@ -389,7 +413,7 @@ function BoardNotes({ boardType, selectedDate }: { boardType: 'portfolio' | 'opt
 
     useEffect(() => {
         const dateStr = formatDateAPI(selectedDate);
-        fetch(getUrl(`/notes/${boardType}?target_date=${dateStr}`))
+        authFetch(getUrl(`/notes/${boardType}?target_date=${dateStr}`))
             .then(res => res.json())
             .then(data => setNotes(data.content || ''))
             .catch(e => {
@@ -402,7 +426,7 @@ function BoardNotes({ boardType, selectedDate }: { boardType: 'portfolio' | 'opt
         setIsSaving(true);
         const dateStr = formatDateAPI(selectedDate);
         try {
-            await fetch(getUrl(`/notes/${boardType}`), {
+            await authFetch(getUrl(`/notes/${boardType}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date: dateStr, content: newContent })
@@ -502,11 +526,25 @@ export function AssetsPage() {
         setAlertOpen(true);
     }, []);
 
-    // Fetch capital allocation from IBKR
     const fetchCapital = async (dateVal: Date) => {
         const dateStr = formatDateAPI(dateVal);
         try {
-            const res = await fetch(getUrl(`capital-allocation?target_date=${dateStr}`));
+            // First get live net liquidation from local connector (if TWS is open)
+            let netLiq: number | undefined;
+            try {
+                const portRes = await fetch('http://127.0.0.1:8765/portfolio');
+                if (portRes.ok) {
+                    const portData = await portRes.json();
+                    if (portData.success && portData.summary) {
+                        netLiq = portData.summary.net_liquidation;
+                    }
+                }
+            } catch (e) {
+                // Ignore connector errors for capital fetch, backend will return defaults
+            }
+
+            const url = `capital-allocation?target_date=${dateStr}${netLiq ? `&net_liquidation=${netLiq}` : ''}`;
+            const res = await authFetch(getUrl(url));
             if (res.ok) {
                 const data = await res.json();
                 // Only update state if data actually changed to avoid unnecessary re-renders
@@ -527,7 +565,7 @@ export function AssetsPage() {
         }
         const dateStr = formatDateAPI(dateVal);
         try {
-            const res = await fetch(getUrl(`?target_date=${dateStr}`));
+            const res = await authFetch(getUrl(`?target_date=${dateStr}`));
             if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
             const data = await res.json();
             setAssets(data);
@@ -539,11 +577,27 @@ export function AssetsPage() {
         }
     };
 
+    const pullPositionsFromConnector = async () => {
+        const res = await fetch('http://127.0.0.1:8765/positions');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Could not connect to IBKR");
+        }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || "Failed to fetch positions");
+        return data.positions || [];
+    };
+
     // Silent sync: fetches live positions from IBKR without UI alerts
     const silentSyncPositions = async (dateVal: Date) => {
         const dateStr = formatDateAPI(dateVal);
         try {
-            await fetch(getUrl(`/sync-positions?target_date=${dateStr}`), { method: 'POST' });
+            const positions = await pullPositionsFromConnector();
+            await authFetch(getUrl(`/sync-client-positions?target_date=${dateStr}`), { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ positions })
+            });
         } catch (e) {
             // Silent — errors are non-blocking during background refresh
             console.error('Silent sync failed:', e);
@@ -636,7 +690,7 @@ export function AssetsPage() {
 
             // API Call
             try {
-                const res = await fetch(getUrl(`/${activeAsset.id}/move`), {
+                const res = await authFetch(getUrl(`/${activeAsset.id}/move`), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ column_id: targetColumnId, position: 0 })
@@ -669,7 +723,7 @@ export function AssetsPage() {
         const boardType = ['calls', 'puts', 'underlying'].includes(columnId) ? 'options' : 'portfolio';
 
         try {
-            const res = await fetch(getUrl(), {
+            const res = await authFetch(getUrl(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -712,7 +766,7 @@ export function AssetsPage() {
             async () => {
                 const dateStr = formatDateAPI(selectedDate);
                 try {
-                    const res = await fetch(getUrl(`/board/${boardType}?target_date=${dateStr}`), { method: 'DELETE' });
+                    const res = await authFetch(getUrl(`/board/${boardType}?target_date=${dateStr}`), { method: 'DELETE' });
                     if (!res.ok) {
                         showAlert('Clear failed', 'Failed to clear board');
                         return;
@@ -730,7 +784,7 @@ export function AssetsPage() {
     const handleReset = async (boardType: 'portfolio' | 'options') => {
         const dateStr = formatDateAPI(selectedDate);
         try {
-            const res = await fetch(getUrl(`/board/${boardType}/reset?target_date=${dateStr}`), { method: 'POST' });
+            const res = await authFetch(getUrl(`/board/${boardType}/reset?target_date=${dateStr}`), { method: 'POST' });
             if (!res.ok) {
                 showAlert('Reset failed', 'Failed to reset board');
                 return;
@@ -757,7 +811,7 @@ export function AssetsPage() {
             },
             async () => {
                 try {
-                    const res = await fetch(getUrl(`/${id}`), { method: 'DELETE' });
+                    const res = await authFetch(getUrl(`/${id}`), { method: 'DELETE' });
                     if (!res.ok) {
                         showAlert('Delete failed', 'Failed to delete item');
                         return;
@@ -775,10 +829,15 @@ export function AssetsPage() {
     const handleSyncPositions = async () => {
         setLastSyncError(null);
         try {
-            const res = await fetch(getUrl(`/sync-positions?target_date=${formatDateAPI(selectedDate)}`), { method: 'POST' });
+            const positions = await pullPositionsFromConnector();
+            const res = await authFetch(getUrl(`/sync-client-positions?target_date=${formatDateAPI(selectedDate)}`), { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ positions })
+            });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.detail || "Sync failed");
+                throw new Error(err.detail || "Sync failed on server");
             }
             const data = await res.json();
             await fetchAssets(selectedDate);

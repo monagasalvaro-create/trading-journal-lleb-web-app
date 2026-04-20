@@ -20,19 +20,26 @@ logger = logging.getLogger(__name__)
 
 # ─── ib_insync connection factory ─────────────────────────────────────────────
 
-def _connect_ib(port: int, client_id: int):
-    """Create and connect an IB instance. Returns None on failure."""
-    try:
-        from ib_insync import IB
-        import random
-        ib = IB()
-        # Randomize clientId to avoid conflicts when multiple requests arrive quickly
-        cid = client_id + random.randint(0, 50)
-        ib.connect("127.0.0.1", port, clientId=cid, timeout=8, readonly=True)
-        return ib
-    except Exception as exc:
-        logger.error("Failed to connect to TWS at port %d: %s", port, exc)
-        return None
+def _connect_ib(client_id: int):
+    """Create and connect an IB instance, auto-detecting the port. Returns None on failure."""
+    from ib_insync import IB
+    import random
+    
+    cid = client_id + random.randint(0, 50)
+    ports_to_try = [7497, 7496, 4001, 4002]
+    
+    for port in ports_to_try:
+        try:
+            ib = IB()
+            ib.connect("127.0.0.1", port, clientId=cid, timeout=2, readonly=True)
+            logger.info("Connected to IBKR on port %d", port)
+            return ib
+        except Exception as exc:
+            logger.debug("Failed to connect to TWS at port %d", port)
+            continue
+            
+    logger.error("Could not connect to IBKR. Ensure TWS/Gateway is running with API enabled on one of %s", ports_to_try)
+    return None
 
 
 # ─── Portfolio Data ────────────────────────────────────────────────────────────
@@ -45,13 +52,13 @@ async def fetch_portfolio_data(port: int = 7497) -> dict[str, Any]:
     web app can display a meaningful message instead of crashing.
     """
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fetch_portfolio_sync, port)
+    return await loop.run_in_executor(None, _fetch_portfolio_sync)
 
 
-def _fetch_portfolio_sync(port: int) -> dict[str, Any]:
-    ib = _connect_ib(port, client_id=200)
+def _fetch_portfolio_sync() -> dict[str, Any]:
+    ib = _connect_ib(client_id=200)
     if not ib:
-        return {"success": False, "message": "Cannot connect to TWS. Make sure TWS is open with API enabled."}
+        return {"success": False, "message": "Cannot connect to TWS. Ports 7497, 7496, 4001, 4002 are unreachable. Enable API in TWS Settings."}
 
     try:
         account_values = ib.accountValues()
@@ -93,11 +100,11 @@ def _fetch_portfolio_sync(port: int) -> dict[str, Any]:
 async def fetch_open_positions(port: int = 7497) -> dict[str, Any]:
     """Fetch open positions from TWS including stop order detection."""
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fetch_positions_sync, port)
+    return await loop.run_in_executor(None, _fetch_positions_sync)
 
 
-def _fetch_positions_sync(port: int) -> dict[str, Any]:
-    ib = _connect_ib(port, client_id=201)
+def _fetch_positions_sync() -> dict[str, Any]:
+    ib = _connect_ib(client_id=201)
     if not ib:
         return {"success": False, "message": "Cannot connect to TWS.", "positions": []}
 
