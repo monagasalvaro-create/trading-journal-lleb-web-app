@@ -4,7 +4,7 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ .
-RUN npm run build
+RUN npx vite build
 
 # Stage 2: Python backend + compiled frontend
 FROM python:3.12-slim
