@@ -1,19 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
-from typing import List, Dict, Any
+from sqlalchemy import select, or_, update, delete
+from sqlalchemy import func
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from datetime import date, datetime
 import logging
 
 from database import get_db
-from models import AssetBoardItem, Trade
+from models import AssetBoardItem, Trade, BoardNote
 from routers.settings import get_or_create_settings
 from ibkr_account import fetch_net_liquidation
-
-from datetime import date, datetime
-from sqlalchemy import func
 from ibkr_positions import fetch_open_positions
-from typing import Optional
+from auth_utils import get_user_id_from_request
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 logger = logging.getLogger(__name__)
@@ -27,8 +26,6 @@ class AssetCreate(BaseModel):
 class NoteCreate(BaseModel):
     date: date
     content: str
-
-from models import AssetBoardItem, BoardNote
 
 class AssetMove(BaseModel):
     column_id: str
@@ -47,30 +44,22 @@ class AssetResponse(BaseModel):
     date: date
 
 # ── Capital Allocation ─────────────────────────────────────────────
-# IMPORTANT: This route MUST be defined before /{asset_id} routes
-# otherwise FastAPI treats "capital-allocation" as an asset_id.
-
-# Relative weights within the stocks portion (60/30/10 columns)
 _STOCK_COL_WEIGHTS = {"60": 0.60, "30": 0.30, "10": 0.10}
-
 
 @router.get("/capital-allocation")
 async def capital_allocation(
+    request: Request,
     target_date: date = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Fetch NetLiquidation from IBKR, apply user-defined stocks/options
-    split from Settings, then subdivide each pool by asset count.
-    """
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
     if target_date is None:
         target_date = date.today()
 
-    # 1. Get settings (port + percentages)
     try:
-        settings = await get_or_create_settings(db, account_id)
+        settings = await get_or_create_settings(db, account_id, user_id_str)
         port = settings.ibkr_socket_port or 7497
         stocks_pct = (settings.portfolio_stocks_pct if settings.portfolio_stocks_pct is not None else 70.0) / 100.0
         options_pct = (settings.portfolio_options_pct if settings.portfolio_options_pct is not None else 30.0) / 100.0
@@ -85,7 +74,6 @@ async def capital_allocation(
             "error": f"Failed to read settings: {exc}",
         }
 
-    # 2. Fetch NetLiquidation from IBKR
     account_result = await fetch_net_liquidation(port)
 
     if not account_result.success:
@@ -102,11 +90,11 @@ async def capital_allocation(
     stocks_pool = net_liq * stocks_pct
     options_pool = net_liq * options_pct
 
-    # 3. Count PORTFOLIO (stocks) assets per column
     result = await db.execute(
         select(AssetBoardItem)
         .where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == "portfolio",
             AssetBoardItem.date == target_date,
         )
@@ -118,7 +106,6 @@ async def capital_allocation(
         if asset.column_id in stock_counts:
             stock_counts[asset.column_id] += 1
 
-    # 4. Build segments for the 60/30/10 columns (within stocks_pool)
     segments: Dict[str, Any] = {}
     for col_id, weight in _STOCK_COL_WEIGHTS.items():
         total = round(stocks_pool * weight, 2)
@@ -130,11 +117,11 @@ async def capital_allocation(
             "per_asset": per_asset,
         }
 
-    # 5. Count OPTIONS assets (calls + puts, exclude underlying)
     result = await db.execute(
         select(AssetBoardItem)
         .where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == "options",
             AssetBoardItem.date == target_date,
         )
@@ -150,11 +137,6 @@ async def capital_allocation(
         "per_asset": options_per_asset,
         "one_third_five_pct": round((options_pool * 0.05) / 3, 2),
     }
-
-    logger.info(
-        "Capital allocation: NetLiq=$%.2f, stocks=%.0f%% ($%.2f), options=%.0f%% ($%.2f)",
-        net_liq, stocks_pct * 100, stocks_pool, options_pct * 100, options_pool,
-    )
 
     return {
         "net_liquidation": round(net_liq, 2),
@@ -172,14 +154,11 @@ async def _build_positions_from_trades(
     db: AsyncSession,
     target_date: date,
     account_id: str,
+    user_id_str: str,
 ) -> list[dict]:
-    """
-    For past dates: query the local trades DB to find positions that were
-    active on target_date (entered on/before AND still open or exited on/after).
-    Returns a list of dicts with the same shape the reconciler expects.
-    """
     stmt = select(Trade).where(
         Trade.account_id == account_id,
+        Trade.user_id == user_id_str,
         Trade.entry_date <= target_date,
         or_(Trade.exit_date == None, Trade.exit_date >= target_date),
     )
@@ -191,12 +170,9 @@ async def _build_positions_from_trades(
         sec_type = "OPT" if t.asset_class == "OPT" else "STK"
         invested_amt = abs(t.quantity * t.entry_price * (t.multiplier or 1))
 
-        # A trade is truly "closed" only if it has an exit date AND recorded P&L.
-        # Trades with exit_date but $0 P&L are likely incomplete imports → treat as open (BUY).
         has_exit = t.exit_date is not None and t.exit_date <= target_date
         trade_is_closed = has_exit and (t.net_pnl is not None and t.net_pnl != 0)
 
-        # Route options to correct column based on put_call
         if sec_type == "OPT":
             if t.put_call == "C":
                 target_col = "calls"
@@ -223,12 +199,8 @@ async def _upsert_and_reconcile(
     target_date: date,
     positions: list[dict],
     account_id: str,
+    user_id_str: str,
 ) -> int:
-    """
-    Shared logic: add/update board items from positions list for the given account,
-    then delete stale items whose symbols are no longer present.
-    Returns the number of processed (added/updated) items.
-    """
     processed_count = 0
 
     for p in positions:
@@ -265,6 +237,7 @@ async def _upsert_and_reconcile(
 
         stmt = select(AssetBoardItem).where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.symbol == symbol,
             AssetBoardItem.board_type == board_type,
             AssetBoardItem.date == target_date,
@@ -282,6 +255,7 @@ async def _upsert_and_reconcile(
         else:
             db.add(AssetBoardItem(
                 account_id=account_id,
+                user_id=user_id_str,
                 symbol=symbol,
                 board_type=board_type,
                 column_id=target_col,
@@ -294,13 +268,13 @@ async def _upsert_and_reconcile(
             ))
         processed_count += 1
 
-    # ── Reconcile: remove stale items for this account only ────────
     synced_stock_symbols = {p["symbol"] for p in positions if p["secType"] == "STK"}
     synced_option_symbols = {p["symbol"] for p in positions if p["secType"] == "OPT"}
 
     for board, symbols in [("portfolio", synced_stock_symbols), ("options", synced_option_symbols)]:
         stale_stmt = select(AssetBoardItem).where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == board,
             AssetBoardItem.date == target_date,
             AssetBoardItem.invested_amount.is_not(None),
@@ -317,23 +291,20 @@ async def _upsert_and_reconcile(
 
 @router.post("/sync-positions")
 async def sync_positions(
+    request: Request,
     target_date: date = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Sync board items for the given date, scoped to the active account.
-    - Today  → fetch live positions from IBKR.
-    - Past   → query local trades DB for positions active on that date.
-    """
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
     if target_date is None:
         target_date = date.today()
 
     is_today = target_date == date.today()
 
     if is_today:
-        settings_res = await get_or_create_settings(db, account_id)
+        settings_res = await get_or_create_settings(db, account_id, user_id_str)
         port = settings_res.ibkr_socket_port
 
         pos_result = await fetch_open_positions(port)
@@ -343,17 +314,12 @@ async def sync_positions(
         positions = pos_result["positions"]
         source = "ibkr"
     else:
-        # ── Historical path: trades DB ─────────────────────────
-        positions = await _build_positions_from_trades(db, target_date, account_id)
+        positions = await _build_positions_from_trades(db, target_date, account_id, user_id_str)
         source = "trades_db"
 
-    processed_count = await _upsert_and_reconcile(db, target_date, positions, account_id)
+    processed_count = await _upsert_and_reconcile(db, target_date, positions, account_id, user_id_str)
     await db.commit()
 
-    logger.info(
-        "Sync positions [%s]: synced %d items for date %s",
-        source, processed_count, target_date,
-    )
     return {
         "status": "success",
         "message": f"Synced {processed_count} positions",
@@ -366,17 +332,23 @@ async def sync_positions(
 
 @router.get("/", response_model=List[AssetResponse])
 async def get_assets(
+    request: Request,
     target_date: date = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
     if target_date is None:
         target_date = date.today()
 
     result = await db.execute(
         select(AssetBoardItem)
-        .where(AssetBoardItem.account_id == account_id, AssetBoardItem.date == target_date)
+        .where(
+            AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
+            AssetBoardItem.date == target_date
+        )
         .order_by(AssetBoardItem.position)
     )
     assets = result.scalars().all()
@@ -384,15 +356,19 @@ async def get_assets(
 
 @router.post("/", response_model=AssetResponse)
 async def create_asset(
+    request: Request,
     asset: AssetCreate,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
+    
     result = await db.execute(
         select(AssetBoardItem)
         .where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == asset.board_type,
             AssetBoardItem.column_id == asset.column_id,
             AssetBoardItem.date == asset.date,
@@ -404,6 +380,7 @@ async def create_asset(
 
     new_asset = AssetBoardItem(
         account_id=account_id,
+        user_id=user_id_str,
         symbol=asset.symbol,
         board_type=asset.board_type,
         column_id=asset.column_id,
@@ -416,8 +393,24 @@ async def create_asset(
     return new_asset.to_dict()
 
 @router.delete("/{asset_id}")
-async def delete_asset(asset_id: int, db: AsyncSession = Depends(get_db)):
-    asset = await db.get(AssetBoardItem, asset_id)
+async def delete_asset(
+    request: Request,
+    asset_id: int, 
+    x_account_id: Optional[str] = Header(default="default"),
+    db: AsyncSession = Depends(get_db)
+):
+    account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
+    
+    result = await db.execute(
+        select(AssetBoardItem).where(
+            AssetBoardItem.id == asset_id,
+            AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str
+        )
+    )
+    asset = result.scalar_one_or_none()
+    
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     
@@ -426,8 +419,25 @@ async def delete_asset(asset_id: int, db: AsyncSession = Depends(get_db)):
     return {"success": True}
 
 @router.put("/{asset_id}/move")
-async def move_asset(asset_id: int, move_data: AssetMove, db: AsyncSession = Depends(get_db)):
-    asset = await db.get(AssetBoardItem, asset_id)
+async def move_asset(
+    request: Request,
+    asset_id: int, 
+    move_data: AssetMove, 
+    x_account_id: Optional[str] = Header(default="default"),
+    db: AsyncSession = Depends(get_db)
+):
+    account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
+    
+    result = await db.execute(
+        select(AssetBoardItem).where(
+            AssetBoardItem.id == asset_id,
+            AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str
+        )
+    )
+    asset = result.scalar_one_or_none()
+    
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
@@ -439,23 +449,25 @@ async def move_asset(asset_id: int, move_data: AssetMove, db: AsyncSession = Dep
 
 @router.delete("/board/{board_type}")
 async def clear_board(
+    request: Request,
     board_type: str,
     target_date: date = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete all assets in a specific board for a specific date (active account only)."""
     if board_type not in ['portfolio', 'options']:
         raise HTTPException(status_code=400, detail="Invalid board type")
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
+    
     if target_date is None:
         target_date = date.today()
 
-    from sqlalchemy import delete
     await db.execute(
         delete(AssetBoardItem)
         .where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == board_type,
             AssetBoardItem.date == target_date,
         )
@@ -465,12 +477,12 @@ async def clear_board(
 
 @router.post("/board/{board_type}/reset")
 async def reset_board(
+    request: Request,
     board_type: str,
     target_date: date = None,
     x_account_id: Optional[str] = Header(default="default"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Reset all assets in a board to their default column (active account only)."""
     if board_type == 'portfolio':
         default_col = 'active'
     elif board_type == 'options':
@@ -478,14 +490,15 @@ async def reset_board(
     else:
         raise HTTPException(status_code=400, detail="Invalid board type")
     account_id = x_account_id or "default"
+    user_id_str = get_user_id_from_request(request) or "system"
     if target_date is None:
         target_date = date.today()
 
-    from sqlalchemy import update
     await db.execute(
         update(AssetBoardItem)
         .where(
             AssetBoardItem.account_id == account_id,
+            AssetBoardItem.user_id == user_id_str,
             AssetBoardItem.board_type == board_type,
             AssetBoardItem.date == target_date,
         )
@@ -495,14 +508,23 @@ async def reset_board(
     return {"success": True}
 
 @router.get("/notes/{board_type}")
-async def get_notes(board_type: str, target_date: date = None, db: AsyncSession = Depends(get_db)):
+async def get_notes(
+    request: Request,
+    board_type: str, 
+    target_date: date = None, 
+    db: AsyncSession = Depends(get_db)
+):
+    user_id_str = get_user_id_from_request(request) or "system"
     if target_date is None:
         target_date = date.today()
     
     result = await db.execute(
         select(BoardNote)
-        .where(BoardNote.board_type == board_type)
-        .where(BoardNote.date == target_date)
+        .where(
+            BoardNote.board_type == board_type,
+            BoardNote.date == target_date,
+            BoardNote.user_id == user_id_str
+        )
     )
     note = result.scalars().first()
     if note:
@@ -510,12 +532,21 @@ async def get_notes(board_type: str, target_date: date = None, db: AsyncSession 
     return {"content": ""}
 
 @router.post("/notes/{board_type}")
-async def save_note(board_type: str, note_data: NoteCreate, db: AsyncSession = Depends(get_db)):
-    # Check if note exists for this date/board
+async def save_note(
+    request: Request,
+    board_type: str, 
+    note_data: NoteCreate, 
+    db: AsyncSession = Depends(get_db)
+):
+    user_id_str = get_user_id_from_request(request) or "system"
+    
     result = await db.execute(
         select(BoardNote)
-        .where(BoardNote.board_type == board_type)
-        .where(BoardNote.date == note_data.date)
+        .where(
+            BoardNote.board_type == board_type,
+            BoardNote.date == note_data.date,
+            BoardNote.user_id == user_id_str
+        )
     )
     existing_note = result.scalars().first()
     
@@ -526,7 +557,8 @@ async def save_note(board_type: str, note_data: NoteCreate, db: AsyncSession = D
         new_note = BoardNote(
             board_type=board_type,
             date=note_data.date,
-            content=note_data.content
+            content=note_data.content,
+            user_id=user_id_str
         )
         db.add(new_note)
     
