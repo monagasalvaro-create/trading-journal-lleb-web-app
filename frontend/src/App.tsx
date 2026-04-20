@@ -83,31 +83,19 @@ interface ToastState {
     variant: 'default' | 'success' | 'destructive';
 }
 
+// Auth gate: renders LoginPage until a valid session is confirmed, then mounts
+// AppContent. Kept as a separate component so that AppContent always renders
+// with the same number of hooks — flipping isAuthenticated false→true would
+// otherwise violate React's Rules of Hooks and cause a blank screen.
 function App() {
-    const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState('tj_sidebarCollapsed', false);
-    const [currentView, setCurrentView] = usePersistedState<View>('tj_currentView', 'dashboard');
-    // Track the active account ID so the component tree re-renders on account switch
-    const [_activeAccountId, setActiveAccountId] = useState(() => getActiveAccountId());
-    const [toast, setToast] = useState<ToastState>({
-        open: false,
-        title: '',
-        description: '',
-        variant: 'default',
-    });
-
-    // ─── Auth gate ────────────────────────────────────────────────────────
-    // isAuthenticated starts as true if a token exists in localStorage,
-    // then is validated lazily by any 401 response (handled in api.ts).
-    // In local mode (no server), the backend returns 401 only for /api/auth routes
-    // which are exempt, so isAuthenticated remains true (backward compatible).
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!getAccessToken());
 
-    // On mount: if we have a token, verify it's still valid against /api/auth/me
+    // On mount: if a token exists, verify it against /api/auth/me.
+    // Clears auth state if the token is expired and cannot be refreshed.
     useEffect(() => {
         const token = getAccessToken();
-        if (!token) return; // no token — login screen will handle it
+        if (!token) return;
         authApi.me().catch(() => {
-            // Token is invalid or expired and refresh also failed (handled in fetchApi)
             setIsAuthenticated(false);
         });
     }, []);
@@ -115,6 +103,20 @@ function App() {
     if (!isAuthenticated) {
         return <LoginPage onAuthenticated={() => setIsAuthenticated(true)} />;
     }
+
+    return <AppContent />;
+}
+
+function AppContent() {
+    const [sidebarCollapsed, setSidebarCollapsed] = usePersistedState('tj_sidebarCollapsed', false);
+    const [currentView, setCurrentView] = usePersistedState<View>('tj_currentView', 'dashboard');
+    const [_activeAccountId, setActiveAccountId] = useState(() => getActiveAccountId());
+    const [toast, setToast] = useState<ToastState>({
+        open: false,
+        title: '',
+        description: '',
+        variant: 'default',
+    });
 
     const { theme, setTheme } = useTheme();
     const { t } = useTranslation();
@@ -176,7 +178,6 @@ function App() {
             }
         },
         onError: (error: Error) => {
-            // If no credentials, suggest going to settings
             if (error.message.includes('No IBKR credentials')) {
                 showToast(t('app.toast.setupRequired'), t('app.toast.setupMessage'), 'destructive');
             } else {
@@ -184,8 +185,6 @@ function App() {
             }
         },
     });
-
-
 
     const showToast = (
         title: string,
@@ -197,7 +196,6 @@ function App() {
     };
 
     const handleSync = () => {
-        // Try real sync first (uses stored credentials)
         syncMutation.mutate();
     };
 

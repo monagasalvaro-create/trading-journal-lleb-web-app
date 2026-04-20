@@ -21,8 +21,12 @@ logger = logging.getLogger(__name__)
 
 # Public routes that do NOT require authentication.
 # Evaluated as prefix matches — any route starting with these paths is exempt.
+# NOTE: only the three unauthenticated auth endpoints are listed here.
+# /api/auth/me is intentionally NOT exempt — it requires a valid access token.
 _EXEMPT_PREFIXES = (
-    "/api/auth/",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
     "/api/health",
     "/assets/",
 )
