@@ -16,7 +16,7 @@ from sqlalchemy import inspect, text
 logger = logging.getLogger(__name__)
 
 # Increment SCHEMA_VERSION when adding new migrations.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Each migration is a tuple: (version, description, list_of_sql_statements)
 # Migrations are applied in order. Each SQL statement is executed inside its own savepoint.
@@ -86,6 +86,13 @@ MIGRATIONS = [
             "ALTER TABLE account_equity ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
             "ALTER TABLE asset_board_items ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
             "ALTER TABLE board_notes ADD COLUMN user_id VARCHAR(36) NOT NULL DEFAULT 'system'",
+        ],
+    ),
+    (
+        8,
+        "Widen trades.ticker to VARCHAR(50) for IBKR OCC options symbols (e.g. 'IWM   260219C00265000')",
+        [
+            "ALTER TABLE trades ALTER COLUMN ticker TYPE VARCHAR(50)",
         ],
     ),
 ]

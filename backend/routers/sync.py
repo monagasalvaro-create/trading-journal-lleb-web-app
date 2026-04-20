@@ -113,7 +113,7 @@ def parse_trades_from_xml(xml_content: str) -> List[dict]:
                 ]}
                 logger.debug("Trade %d: %s", idx, relevant_attrs)
             
-            ticker = attrib.get("symbol", "")
+            ticker = attrib.get("symbol", "").strip()  # Strip IBKR whitespace padding from OCC symbols
             
             # Get date from tradeDate or dateTime
             date_str = attrib.get("tradeDate", "")
@@ -566,7 +566,12 @@ async def sync_ibkr(
             await db.commit()
         except Exception as e:
             import traceback
-            raise HTTPException(status_code=500, detail=traceback.format_exc())
+            logger.error("Sync commit failed: %s\n%s", e, traceback.format_exc())
+            await db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Sync data could not be saved: {type(e).__name__} — {e}"
+            )
 
         logger.info("Sync complete: %d imported, %d updated, %d NAV records", imported, updated, nav_imported)
         

@@ -28,7 +28,7 @@ class Trade(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String(36), nullable=False, default="system", index=True)  # Multi-tenant isolation (migration v7)
     account_id = Column(String(50), nullable=False, default="default", index=True)  # Multi-account isolation
-    ticker = Column(String(20), nullable=False, index=True)
+    ticker = Column(String(50), nullable=False, index=True)  # OCC options format can be ~21 chars (e.g. 'IWM   260219C00265000')
     underlying_symbol = Column(String(20), nullable=True)  # For options
     entry_date = Column(Date, nullable=False, index=True)
     entry_time = Column(String(8), nullable=True)  # HH:MM:SS

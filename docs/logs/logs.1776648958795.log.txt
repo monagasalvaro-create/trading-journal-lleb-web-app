@@ -1,0 +1,1001 @@
+2026-04-20T01:34:46.067490227Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:34:46.067496091Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:34:46.067500329Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:34:46.067504415Z [err]  [parameters: ('113bdc1fb3d5c780', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'a89b693c-7b24-4394-a9e0-d7d0242e9a8f', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:34:46.067508823Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:34:46.067513786Z [err]  
+2026-04-20T01:34:46.067518226Z [inf]  INFO:     100.64.0.3:18776 - "POST /api/sync HTTP/1.1" 500 Internal Server Error
+2026-04-20T01:34:46.068597725Z [err]  ERROR:    Exception in ASGI application
+2026-04-20T01:34:46.068605971Z [err]  Traceback (most recent call last):
+2026-04-20T01:34:46.068611840Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+2026-04-20T01:34:46.068617123Z [err]      self._rows = deque(await prepared_stmt.fetch(*parameters))
+2026-04-20T01:34:46.068622252Z [err]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.068627795Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+2026-04-20T01:34:46.068633187Z [err]      data = await self.__bind_execute(args, 0, timeout)
+2026-04-20T01:34:46.068638877Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.068644096Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+2026-04-20T01:34:46.068649405Z [err]      data, status, _ = await self.__do_execute(
+2026-04-20T01:34:46.068654542Z [err]                        ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.068661150Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+2026-04-20T01:34:46.068666401Z [err]      return await executor(protocol)
+2026-04-20T01:34:46.068671535Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.068676506Z [err]    File "asyncpg/protocol/protocol.pyx", line 207, in bind_execute
+2026-04-20T01:34:46.068681702Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 289, in __await__
+2026-04-20T01:34:46.068695711Z [err]      yield self  # This tells Task to wait for completion.
+2026-04-20T01:34:46.068702960Z [err]      ^^^^^^^^^^
+2026-04-20T01:34:46.068708460Z [err]    File "/usr/local/lib/python3.12/asyncio/tasks.py", line 385, in __wakeup
+2026-04-20T01:34:46.068723815Z [err]      future.result()
+2026-04-20T01:34:46.070071731Z [err]      self._adapt_connection.await_(
+2026-04-20T01:34:46.070077690Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 202, in result
+2026-04-20T01:34:46.070082508Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:34:46.070085343Z [err]      raise self._exception.with_traceback(self._exception_tb)
+2026-04-20T01:34:46.070091439Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:34:46.070091869Z [err]  asyncpg.exceptions.StringDataRightTruncationError: value too long for type character varying(20)
+2026-04-20T01:34:46.070099395Z [err]  
+2026-04-20T01:34:46.070100587Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.070105144Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:34:46.070109658Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:34:46.070110539Z [err]  
+2026-04-20T01:34:46.070117215Z [err]  Traceback (most recent call last):
+2026-04-20T01:34:46.070120193Z [err]      value = await result
+2026-04-20T01:34:46.070125595Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:34:46.070128111Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:34:46.070133191Z [err]      self.dialect.do_execute(
+2026-04-20T01:34:46.070136242Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:34:46.070139820Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:34:46.070146563Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:34:46.070151659Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:34:46.071254376Z [err]      self._handle_exception(error)
+2026-04-20T01:34:46.071261017Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:34:46.071265938Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:34:46.071270265Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:34:46.071274492Z [err]      raise translated_error from error
+2026-04-20T01:34:46.071280059Z [err]  sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:34:46.071285894Z [err]  
+2026-04-20T01:34:46.071292107Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:34:46.071298092Z [err]  
+2026-04-20T01:34:46.071303546Z [err]  Traceback (most recent call last):
+2026-04-20T01:34:46.071308914Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 416, in run_asgi
+2026-04-20T01:34:46.071314080Z [err]      result = await app(  # type: ignore[func-returns-value]
+2026-04-20T01:34:46.071320191Z [err]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.071325701Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+2026-04-20T01:34:46.071332251Z [err]      return await self.app(scope, receive, send)
+2026-04-20T01:34:46.071337769Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.071342724Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1138, in __call__
+2026-04-20T01:34:46.071349722Z [err]      await super().__call__(scope, receive, send)
+2026-04-20T01:34:46.071354874Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 107, in __call__
+2026-04-20T01:34:46.072577777Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+2026-04-20T01:34:46.072584495Z [err]      raise exc
+2026-04-20T01:34:46.072585957Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:34:46.072591045Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-04-20T01:34:46.072592926Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+2026-04-20T01:34:46.072596663Z [err]      response = await self.dispatch_func(request, call_next)
+2026-04-20T01:34:46.072598968Z [err]      raise exc
+2026-04-20T01:34:46.072604445Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.072605395Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-04-20T01:34:46.072614299Z [err]      await self.app(scope, receive, _send)
+2026-04-20T01:34:46.072614421Z [err]    File "/app/auth_middleware.py", line 82, in dispatch
+2026-04-20T01:34:46.072624677Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 191, in __call__
+2026-04-20T01:34:46.072625887Z [err]      return await call_next(request)
+2026-04-20T01:34:46.072630035Z [err]      with recv_stream, send_stream, collapse_excgroups():
+2026-04-20T01:34:46.072635702Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.072636197Z [err]                                     ^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.072646086Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-04-20T01:34:46.072646169Z [err]    File "/usr/local/lib/python3.12/contextlib.py", line 158, in __exit__
+2026-04-20T01:34:46.072652997Z [err]      self.gen.throw(value)
+2026-04-20T01:34:46.072653289Z [err]      raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-04-20T01:34:46.073983043Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-04-20T01:34:46.073990634Z [err]      await self.app(scope, receive_or_disconnect, send_no_error)
+2026-04-20T01:34:46.073995367Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 95, in __call__
+2026-04-20T01:34:46.073999357Z [err]      await self.simple_response(scope, receive, send, request_headers=headers)
+2026-04-20T01:34:46.074003897Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 153, in simple_response
+2026-04-20T01:34:46.074008507Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:34:46.074012711Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-04-20T01:34:46.074016776Z [err]      await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-04-20T01:34:46.074020714Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:34:46.074024957Z [err]      raise exc
+2026-04-20T01:34:46.074029460Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:34:46.074033495Z [err]      await app(scope, receive, sender)
+2026-04-20T01:34:46.074037792Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-04-20T01:34:46.074041525Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:34:46.074045487Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+2026-04-20T01:34:46.074049389Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:34:46.074053629Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+2026-04-20T01:34:46.075432370Z [err]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.075438389Z [err]      await route.handle(scope, receive, send)
+2026-04-20T01:34:46.075441259Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 314, in run_endpoint_function
+2026-04-20T01:34:46.075445571Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+2026-04-20T01:34:46.075449098Z [err]      return await dependant.call(**values)
+2026-04-20T01:34:46.075451388Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:34:46.075454919Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.075458062Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+2026-04-20T01:34:46.075460986Z [err]    File "/app/routers/sync.py", line 476, in sync_ibkr
+2026-04-20T01:34:46.075465087Z [err]      await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-04-20T01:34:46.075469489Z [err]      result = await db.execute(
+2026-04-20T01:34:46.075473738Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:34:46.075477894Z [err]      raise exc
+2026-04-20T01:34:46.075481394Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:34:46.075484758Z [err]      await app(scope, receive, sender)
+2026-04-20T01:34:46.075488802Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 107, in app
+2026-04-20T01:34:46.075492499Z [err]      response = await f(request)
+2026-04-20T01:34:46.075496906Z [err]                 ^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.075500872Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 426, in app
+2026-04-20T01:34:46.075504555Z [err]      raw_response = await run_endpoint_function(
+2026-04-20T01:34:46.076754248Z [err]      ) = compile_state_cls.orm_pre_session_exec(
+2026-04-20T01:34:46.076760186Z [err]               ^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.076762606Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.076767325Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 449, in execute
+2026-04-20T01:34:46.076771278Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 577, in orm_pre_session_exec
+2026-04-20T01:34:46.076772720Z [err]      result = await greenlet_spawn(
+2026-04-20T01:34:46.076779180Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.076780205Z [err]      session._autoflush()
+2026-04-20T01:34:46.076783752Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+2026-04-20T01:34:46.076789178Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3051, in _autoflush
+2026-04-20T01:34:46.076791346Z [err]      result = context.switch(value)
+2026-04-20T01:34:46.076796707Z [err]      raise e.with_traceback(sys.exc_info()[2])
+2026-04-20T01:34:46.076797652Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.076803257Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+2026-04-20T01:34:46.076805081Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3040, in _autoflush
+2026-04-20T01:34:46.076808181Z [err]      return self._execute_internal(
+2026-04-20T01:34:46.076813401Z [err]      self.flush()
+2026-04-20T01:34:46.076813852Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.076819973Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2228, in _execute_internal
+2026-04-20T01:34:46.076822028Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+2026-04-20T01:34:46.077925213Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2026-04-20T01:34:46.077931666Z [err]      _emit_insert_statements(
+2026-04-20T01:34:46.077936994Z [err]      self._flush(objects)
+2026-04-20T01:34:46.077939147Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+2026-04-20T01:34:46.077943422Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+2026-04-20T01:34:46.077947775Z [err]      result = connection.execute(
+2026-04-20T01:34:46.077948841Z [err]      with util.safe_reraise():
+2026-04-20T01:34:46.077956106Z [err]               ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.077957062Z [err]           ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.077964507Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+2026-04-20T01:34:46.077965864Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+2026-04-20T01:34:46.077970736Z [err]      raise exc_value.with_traceback(exc_tb)
+2026-04-20T01:34:46.077972538Z [err]      return meth(
+2026-04-20T01:34:46.077977056Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+2026-04-20T01:34:46.077980075Z [err]             ^^^^^
+2026-04-20T01:34:46.077984407Z [err]      flush_context.execute()
+2026-04-20T01:34:46.077986963Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+2026-04-20T01:34:46.077989915Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2026-04-20T01:34:46.077993681Z [err]      rec.execute(self)
+2026-04-20T01:34:46.077998298Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+2026-04-20T01:34:46.078002436Z [err]      util.preloaded.orm_persistence.save_obj(
+2026-04-20T01:34:46.079046740Z [err]      return connection._execute_clauseelement(
+2026-04-20T01:34:46.079051550Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.079056181Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+2026-04-20T01:34:46.079060684Z [err]      ret = self._execute_context(
+2026-04-20T01:34:46.079064775Z [err]            ^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.079069951Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+2026-04-20T01:34:46.079074271Z [err]      return self._exec_single_context(
+2026-04-20T01:34:46.079078156Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.079082232Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+2026-04-20T01:34:46.079086998Z [err]      self._handle_dbapi_exception(
+2026-04-20T01:34:46.079091623Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+2026-04-20T01:34:46.079095767Z [err]      raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-20T01:34:46.079100047Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:34:46.079103932Z [err]      self.dialect.do_execute(
+2026-04-20T01:34:46.079107754Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:34:46.079111427Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:34:46.079116679Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:34:46.079121210Z [err]      self._adapt_connection.await_(
+2026-04-20T01:34:46.079125566Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:34:46.080068502Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:34:46.080073479Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:34:46.080078479Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:34:46.080082239Z [err]      value = await result
+2026-04-20T01:34:46.080085831Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:34:46.080090493Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:34:46.080093935Z [err]      self._handle_exception(error)
+2026-04-20T01:34:46.080097359Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:34:46.080101022Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:34:46.080105002Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:34:46.080109413Z [err]      raise translated_error from error
+2026-04-20T01:34:46.080113916Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:34:46.080117317Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:34:46.080120741Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:34:46.081044022Z [err]  [parameters: ('113bdc1fb3d5c780', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'a89b693c-7b24-4394-a9e0-d7d0242e9a8f', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:34:46.081048644Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:34:47.952533245Z [err]  2026-04-20 01:34:46.040 UTC [482] ERROR:  value too long for type character varying(20)
+2026-04-20T01:34:47.952538146Z [err]  2026-04-20 01:34:46.040 UTC [482] STATEMENT:  INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at
+2026-04-20T01:34:51.574458875Z [inf]  INFO:     100.64.0.15:10214 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:34:54.281507670Z [inf]  INFO:     100.64.0.17:41584 - "GET / HTTP/1.1" 200 OK
+2026-04-20T01:34:54.434530178Z [inf]  INFO:     100.64.0.15:10214 - "GET /assets/index-Ia_-QUgl.css HTTP/1.1" 304 Not Modified
+2026-04-20T01:34:54.508850881Z [inf]  INFO:     100.64.0.3:58746 - "GET /assets/index-DMbQC2K1.js HTTP/1.1" 304 Not Modified
+2026-04-20T01:34:54.838075936Z [inf]  INFO:     100.64.0.3:58746 - "GET /assets/logo-BwMMosIE.png HTTP/1.1" 304 Not Modified
+2026-04-20T01:34:54.838080889Z [inf]  INFO:     100.64.0.15:10214 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:34:54.838085716Z [inf]  INFO:     100.64.0.17:41584 - "GET /api/auth/me HTTP/1.1" 200 OK
+2026-04-20T01:34:54.911701849Z [inf]  INFO:     100.64.0.16:45940 - "GET /api/accounts HTTP/1.1" 200 OK
+2026-04-20T01:34:54.911705982Z [inf]  INFO:     100.64.0.12:29974 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:34:54.911710161Z [inf]  INFO:     100.64.0.13:35188 - "GET /api/trades?page=1&page_size=1 HTTP/1.1" 200 OK
+2026-04-20T01:34:54.950964636Z [inf]  INFO:     100.64.0.3:58746 - "GET /api/sync/last-sync HTTP/1.1" 200 OK
+2026-04-20T01:34:54.995585136Z [inf]  INFO:     100.64.0.17:41584 - "GET /vite.svg HTTP/1.1" 200 OK
+2026-04-20T01:34:55.297285978Z [inf]  INFO:     100.64.0.12:29974 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:34:55.297291289Z [inf]  INFO:     100.64.0.5:36132 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:00.508632611Z [inf]  INFO:     100.64.0.14:27758 - "GET / HTTP/1.1" 200 OK
+2026-04-20T01:35:00.859472218Z [inf]  INFO:     100.64.0.14:27758 - "GET /assets/index-DMbQC2K1.js HTTP/1.1" 304 Not Modified
+2026-04-20T01:35:00.946761473Z [inf]  INFO:     100.64.0.6:39812 - "GET /assets/index-Ia_-QUgl.css HTTP/1.1" 304 Not Modified
+2026-04-20T01:35:01.511258297Z [inf]  INFO:     100.64.0.3:58750 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511267183Z [inf]  INFO:     100.64.0.13:18786 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511271994Z [inf]  INFO:     100.64.0.3:58768 - "GET /api/auth/me HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511278871Z [inf]  INFO:     100.64.0.17:62812 - "GET /api/accounts HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511283309Z [inf]  INFO:     100.64.0.14:27766 - "GET /api/trades?page=1&page_size=1 HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511288407Z [inf]  INFO:     100.64.0.16:16750 - "GET /assets/logo-BwMMosIE.png HTTP/1.1" 304 Not Modified
+2026-04-20T01:35:01.511292866Z [inf]  INFO:     100.64.0.6:39812 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:01.511364802Z [inf]  INFO:     100.64.0.14:27758 - "GET /api/sync/last-sync HTTP/1.1" 200 OK
+2026-04-20T01:35:01.551526586Z [inf]  INFO:     100.64.0.17:62812 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:01.551536368Z [inf]  INFO:     100.64.0.3:58768 - "GET /api/accounts HTTP/1.1" 200 OK
+2026-04-20T01:35:01.551542903Z [inf]  INFO:     100.64.0.16:16750 - "GET /api/trades?page=1&page_size=1 HTTP/1.1" 200 OK
+2026-04-20T01:35:01.551548720Z [inf]  INFO:     100.64.0.15:38682 - "GET /api/sync/last-sync HTTP/1.1" 200 OK
+2026-04-20T01:35:01.590832495Z [inf]  INFO:     100.64.0.14:27766 - "GET /vite.svg HTTP/1.1" 200 OK
+2026-04-20T01:35:01.633932794Z [inf]  INFO:     100.64.0.17:62812 - "GET /api/auth/me HTTP/1.1" 200 OK
+2026-04-20T01:35:01.747718466Z [inf]  INFO:     100.64.0.15:38682 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:01.985183961Z [inf]  INFO:     100.64.0.17:62812 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:05.263656894Z [inf]  INFO:     100.64.0.8:32028 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:11.346996100Z [inf]  INFO:     100.64.0.13:37530 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:15.241042730Z [inf]  INFO:     100.64.0.10:18974 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:15.666486337Z [inf]  INFO:     100.64.0.17:33824 - "PUT /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:16.097836495Z [inf]  INFO:     100.64.0.17:33836 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:16.097899746Z [inf]  INFO:     100.64.0.12:28608 - "GET /api/accounts HTTP/1.1" 200 OK
+2026-04-20T01:35:16.109934352Z [err]  2026-04-20 01:35:16,108 - httpx - INFO - HTTP Request: GET https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest?t=30896065962770999680625&q=1428138&v=3 "HTTP/1.1 200 OK"
+2026-04-20T01:35:16.253688982Z [inf]  INFO:     100.64.0.6:17084 - "GET /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:19.283904472Z [err]  2026-04-20 01:35:19,279 - httpx - INFO - HTTP Request: GET https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement?t=30896065962770999680625&q=4470464231&v=3 "HTTP/1.1 200 OK"
+2026-04-20T01:35:19.325229197Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 289, in __await__
+2026-04-20T01:35:19.325238548Z [err]  2026-04-20 01:35:19,309 - main - ERROR - Global Error: Traceback (most recent call last):
+2026-04-20T01:35:19.325245337Z [err]      yield self  # This tells Task to wait for completion.
+2026-04-20T01:35:19.325246208Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+2026-04-20T01:35:19.325250382Z [err]      self._rows = deque(await prepared_stmt.fetch(*parameters))
+2026-04-20T01:35:19.325256362Z [err]      ^^^^^^^^^^
+2026-04-20T01:35:19.325257505Z [err]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.325263891Z [err]    File "/usr/local/lib/python3.12/asyncio/tasks.py", line 385, in __wakeup
+2026-04-20T01:35:19.325265514Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+2026-04-20T01:35:19.325271549Z [err]      data = await self.__bind_execute(args, 0, timeout)
+2026-04-20T01:35:19.325272530Z [err]      future.result()
+2026-04-20T01:35:19.325276234Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.325279632Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+2026-04-20T01:35:19.325283561Z [err]      data, status, _ = await self.__do_execute(
+2026-04-20T01:35:19.325289032Z [err]                        ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.325292766Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+2026-04-20T01:35:19.325295992Z [err]      return await executor(protocol)
+2026-04-20T01:35:19.325299602Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.325303290Z [err]    File "asyncpg/protocol/protocol.pyx", line 207, in bind_execute
+2026-04-20T01:35:19.326187500Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 202, in result
+2026-04-20T01:35:19.326196230Z [err]      raise self._exception.with_traceback(self._exception_tb)
+2026-04-20T01:35:19.326201569Z [err]  asyncpg.exceptions.StringDataRightTruncationError: value too long for type character varying(20)
+2026-04-20T01:35:19.326207210Z [err]  
+2026-04-20T01:35:19.326212030Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:19.326217140Z [err]  
+2026-04-20T01:35:19.326223135Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:19.326227208Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:19.326232377Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:19.326236924Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:19.326241459Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:19.326246177Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:19.326250693Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:19.326254684Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:19.326258557Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:19.326263094Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.326267815Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:19.326272525Z [err]      value = await result
+2026-04-20T01:35:19.326276447Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:19.326280315Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:19.327025249Z [err]      self._handle_exception(error)
+2026-04-20T01:35:19.327031860Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:19.327038071Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:19.327040971Z [err]      raise exc
+2026-04-20T01:35:19.327043589Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:19.327049122Z [err]      raise translated_error from error
+2026-04-20T01:35:19.327053644Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:19.327055402Z [err]  sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:19.327061025Z [err]  
+2026-04-20T01:35:19.327062744Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-04-20T01:35:19.327068337Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:19.327068927Z [err]      await self.app(scope, receive, _send)
+2026-04-20T01:35:19.327074989Z [err]  
+2026-04-20T01:35:19.327075900Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 191, in __call__
+2026-04-20T01:35:19.327081634Z [err]      with recv_stream, send_stream, collapse_excgroups():
+2026-04-20T01:35:19.327086123Z [err]                                     ^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.327092008Z [err]    File "/usr/local/lib/python3.12/contextlib.py", line 158, in __exit__
+2026-04-20T01:35:19.327095911Z [err]      self.gen.throw(value)
+2026-04-20T01:35:19.327102295Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+2026-04-20T01:35:19.328045128Z [err]      raise exc
+2026-04-20T01:35:19.328060868Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-04-20T01:35:19.328067195Z [err]      response = await self.dispatch_func(request, call_next)
+2026-04-20T01:35:19.328073892Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.328079601Z [err]    File "/app/auth_middleware.py", line 82, in dispatch
+2026-04-20T01:35:19.328085386Z [err]      return await call_next(request)
+2026-04-20T01:35:19.328090966Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.328098946Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-04-20T01:35:19.328104968Z [err]      raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-04-20T01:35:19.328110729Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-04-20T01:35:19.328116606Z [err]      await self.app(scope, receive_or_disconnect, send_no_error)
+2026-04-20T01:35:19.328122827Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 95, in __call__
+2026-04-20T01:35:19.328128752Z [err]      await self.simple_response(scope, receive, send, request_headers=headers)
+2026-04-20T01:35:19.328134068Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 153, in simple_response
+2026-04-20T01:35:19.328139994Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.328145406Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-04-20T01:35:19.328150614Z [err]      await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-04-20T01:35:19.328155841Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:19.329221972Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+2026-04-20T01:35:19.329229539Z [err]      await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-04-20T01:35:19.329233958Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:19.329238448Z [err]      raise exc
+2026-04-20T01:35:19.329243219Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:19.329249186Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:19.329250280Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:19.329255177Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 107, in app
+2026-04-20T01:35:19.329260096Z [err]      response = await f(request)
+2026-04-20T01:35:19.329263106Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:19.329265926Z [err]                 ^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.329271625Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-04-20T01:35:19.329281112Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.329287299Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+2026-04-20T01:35:19.329293668Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:19.329299646Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+2026-04-20T01:35:19.329305428Z [err]      await route.handle(scope, receive, send)
+2026-04-20T01:35:19.329334116Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+2026-04-20T01:35:19.329340559Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.330217387Z [err]      return self._execute_internal(
+2026-04-20T01:35:19.330225811Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330225941Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 426, in app
+2026-04-20T01:35:19.330236592Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2228, in _execute_internal
+2026-04-20T01:35:19.330236864Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330242927Z [err]      ) = compile_state_cls.orm_pre_session_exec(
+2026-04-20T01:35:19.330243915Z [err]      raw_response = await run_endpoint_function(
+2026-04-20T01:35:19.330246072Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+2026-04-20T01:35:19.330251372Z [err]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330255452Z [err]      result = context.switch(value)
+2026-04-20T01:35:19.330257468Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 314, in run_endpoint_function
+2026-04-20T01:35:19.330261744Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330264674Z [err]      return await dependant.call(**values)
+2026-04-20T01:35:19.330267713Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+2026-04-20T01:35:19.330271298Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330276066Z [err]    File "/app/routers/sync.py", line 476, in sync_ibkr
+2026-04-20T01:35:19.330280651Z [err]      result = await db.execute(
+2026-04-20T01:35:19.330287164Z [err]               ^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.330292610Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 449, in execute
+2026-04-20T01:35:19.330298292Z [err]      result = await greenlet_spawn(
+2026-04-20T01:35:19.331134994Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.331140634Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 577, in orm_pre_session_exec
+2026-04-20T01:35:19.331144991Z [err]      session._autoflush()
+2026-04-20T01:35:19.331150611Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3051, in _autoflush
+2026-04-20T01:35:19.331155377Z [err]      raise e.with_traceback(sys.exc_info()[2])
+2026-04-20T01:35:19.331161222Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3040, in _autoflush
+2026-04-20T01:35:19.331165995Z [err]      self.flush()
+2026-04-20T01:35:19.331169561Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+2026-04-20T01:35:19.331175576Z [err]      self._flush(objects)
+2026-04-20T01:35:19.331180760Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+2026-04-20T01:35:19.331184794Z [err]      with util.safe_reraise():
+2026-04-20T01:35:19.331189315Z [err]           ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.331193580Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+2026-04-20T01:35:19.331197329Z [err]      raise exc_value.with_traceback(exc_tb)
+2026-04-20T01:35:19.331201249Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+2026-04-20T01:35:19.331205826Z [err]      flush_context.execute()
+2026-04-20T01:35:19.331215014Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2026-04-20T01:35:19.331219533Z [err]      rec.execute(self)
+2026-04-20T01:35:19.331223434Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+2026-04-20T01:35:19.332235433Z [err]      util.preloaded.orm_persistence.save_obj(
+2026-04-20T01:35:19.332245020Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2026-04-20T01:35:19.332251378Z [err]      _emit_insert_statements(
+2026-04-20T01:35:19.332259161Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+2026-04-20T01:35:19.332264795Z [err]      result = connection.execute(
+2026-04-20T01:35:19.332271049Z [err]               ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.332277338Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+2026-04-20T01:35:19.332281695Z [err]      return meth(
+2026-04-20T01:35:19.332286088Z [err]             ^^^^^
+2026-04-20T01:35:19.332290422Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+2026-04-20T01:35:19.332295459Z [err]      return connection._execute_clauseelement(
+2026-04-20T01:35:19.332301362Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.332307037Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+2026-04-20T01:35:19.332312137Z [err]      ret = self._execute_context(
+2026-04-20T01:35:19.332318196Z [err]            ^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.332323811Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+2026-04-20T01:35:19.332329368Z [err]      return self._exec_single_context(
+2026-04-20T01:35:19.332335464Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.332340604Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+2026-04-20T01:35:19.332345969Z [err]      self._handle_dbapi_exception(
+2026-04-20T01:35:19.333208743Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+2026-04-20T01:35:19.333220136Z [err]      raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-20T01:35:19.333228374Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:19.333234492Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:19.333239939Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:19.333245428Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:19.333250846Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:19.333256779Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:19.333262231Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:19.333267376Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:19.333274094Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.333278544Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:19.333283069Z [err]      value = await result
+2026-04-20T01:35:19.333287678Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:19.333291867Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:19.333295877Z [err]      self._handle_exception(error)
+2026-04-20T01:35:19.333299787Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:19.334147325Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:19.334155524Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:19.334160677Z [err]      raise translated_error from error
+2026-04-20T01:35:19.334166703Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:35:19.334171061Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:19.334175369Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:35:19.334179805Z [err]  [parameters: ('113bdc1fb3d5c780', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'a89b693c-7b24-4394-a9e0-d7d0242e9a8f', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:35:19.334183965Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:35:19.334188377Z [err]  
+2026-04-20T01:35:19.334192900Z [inf]  INFO:     100.64.0.17:33824 - "POST /api/sync HTTP/1.1" 500 Internal Server Error
+2026-04-20T01:35:19.335352922Z [err]  ERROR:    Exception in ASGI application
+2026-04-20T01:35:19.335359794Z [err]      ^^^^^^^^^^
+2026-04-20T01:35:19.335362586Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:19.335369613Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+2026-04-20T01:35:19.335369666Z [err]    File "/usr/local/lib/python3.12/asyncio/tasks.py", line 385, in __wakeup
+2026-04-20T01:35:19.335378068Z [err]      self._rows = deque(await prepared_stmt.fetch(*parameters))
+2026-04-20T01:35:19.335379292Z [err]      future.result()
+2026-04-20T01:35:19.335385136Z [err]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.335391013Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+2026-04-20T01:35:19.335395884Z [err]      data = await self.__bind_execute(args, 0, timeout)
+2026-04-20T01:35:19.335400752Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.335406302Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+2026-04-20T01:35:19.335411543Z [err]      data, status, _ = await self.__do_execute(
+2026-04-20T01:35:19.335417693Z [err]                        ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.335421712Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+2026-04-20T01:35:19.335425250Z [err]      return await executor(protocol)
+2026-04-20T01:35:19.335428845Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.335432121Z [err]    File "asyncpg/protocol/protocol.pyx", line 207, in bind_execute
+2026-04-20T01:35:19.335435765Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 289, in __await__
+2026-04-20T01:35:19.335439233Z [err]      yield self  # This tells Task to wait for completion.
+2026-04-20T01:35:19.336080955Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:19.336089780Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:19.336092259Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 202, in result
+2026-04-20T01:35:19.336095838Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:19.336099579Z [err]      raise self._exception.with_traceback(self._exception_tb)
+2026-04-20T01:35:19.336102011Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:19.336106010Z [err]  asyncpg.exceptions.StringDataRightTruncationError: value too long for type character varying(20)
+2026-04-20T01:35:19.336107448Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:19.336113732Z [err]  
+2026-04-20T01:35:19.336115167Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:19.336120256Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:19.336125417Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:19.336127787Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:19.336130704Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.336136573Z [err]  
+2026-04-20T01:35:19.336136695Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:19.336143468Z [err]      value = await result
+2026-04-20T01:35:19.336145045Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:19.336149281Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:19.336155255Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:19.337043632Z [err]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.337048949Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+2026-04-20T01:35:19.337053636Z [err]      return await self.app(scope, receive, send)
+2026-04-20T01:35:19.337057687Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.337061560Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1138, in __call__
+2026-04-20T01:35:19.337069079Z [err]      await super().__call__(scope, receive, send)
+2026-04-20T01:35:19.337074396Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 107, in __call__
+2026-04-20T01:35:19.337074689Z [err]      self._handle_exception(error)
+2026-04-20T01:35:19.337081198Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:19.337084995Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:19.337088408Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:19.337091841Z [err]      raise translated_error from error
+2026-04-20T01:35:19.337097397Z [err]  sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:19.337101781Z [err]  
+2026-04-20T01:35:19.337105723Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:19.337109169Z [err]  
+2026-04-20T01:35:19.337112946Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:19.337118179Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 416, in run_asgi
+2026-04-20T01:35:19.337121611Z [err]      result = await app(  # type: ignore[func-returns-value]
+2026-04-20T01:35:19.338120769Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.338127238Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-04-20T01:35:19.338133159Z [err]      raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-04-20T01:35:19.338140069Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:19.338145357Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+2026-04-20T01:35:19.338148987Z [err]      raise exc
+2026-04-20T01:35:19.338153874Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-04-20T01:35:19.338157650Z [err]      await self.app(scope, receive, _send)
+2026-04-20T01:35:19.338163715Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 191, in __call__
+2026-04-20T01:35:19.338167631Z [err]      with recv_stream, send_stream, collapse_excgroups():
+2026-04-20T01:35:19.338170953Z [err]                                     ^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.338174384Z [err]    File "/usr/local/lib/python3.12/contextlib.py", line 158, in __exit__
+2026-04-20T01:35:19.338178059Z [err]      self.gen.throw(value)
+2026-04-20T01:35:19.338183401Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+2026-04-20T01:35:19.338187004Z [err]      raise exc
+2026-04-20T01:35:19.338200730Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-04-20T01:35:19.338206471Z [err]      response = await self.dispatch_func(request, call_next)
+2026-04-20T01:35:19.338211579Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.338216548Z [err]    File "/app/auth_middleware.py", line 82, in dispatch
+2026-04-20T01:35:19.338223483Z [err]      return await call_next(request)
+2026-04-20T01:35:19.339140174Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-04-20T01:35:19.339147785Z [err]      await self.app(scope, receive_or_disconnect, send_no_error)
+2026-04-20T01:35:19.339150318Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:19.339150864Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:19.339154536Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 95, in __call__
+2026-04-20T01:35:19.339159269Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+2026-04-20T01:35:19.339159686Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:19.339162105Z [err]      await self.simple_response(scope, receive, send, request_headers=headers)
+2026-04-20T01:35:19.339167824Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-04-20T01:35:19.339167919Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 153, in simple_response
+2026-04-20T01:35:19.339172359Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.339176603Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.339178214Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-04-20T01:35:19.339183500Z [err]      await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-04-20T01:35:19.339185308Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+2026-04-20T01:35:19.339197115Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:19.339201858Z [err]      raise exc
+2026-04-20T01:35:19.340280826Z [err]      result = await db.execute(
+2026-04-20T01:35:19.340295404Z [err]      raw_response = await run_endpoint_function(
+2026-04-20T01:35:19.340298590Z [err]      await route.handle(scope, receive, send)
+2026-04-20T01:35:19.340302571Z [err]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.340304127Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+2026-04-20T01:35:19.340308404Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 314, in run_endpoint_function
+2026-04-20T01:35:19.340313363Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:19.340315648Z [err]      return await dependant.call(**values)
+2026-04-20T01:35:19.340321159Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+2026-04-20T01:35:19.340325581Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.340327316Z [err]      await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-04-20T01:35:19.340332433Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:19.340332594Z [err]    File "/app/routers/sync.py", line 476, in sync_ibkr
+2026-04-20T01:35:19.340336694Z [err]      raise exc
+2026-04-20T01:35:19.340340411Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:19.340344362Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:19.340348886Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 107, in app
+2026-04-20T01:35:19.340353112Z [err]      response = await f(request)
+2026-04-20T01:35:19.340356804Z [err]                 ^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.340360387Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 426, in app
+2026-04-20T01:35:19.341232396Z [err]               ^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.341237138Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 449, in execute
+2026-04-20T01:35:19.341243119Z [err]      result = await greenlet_spawn(
+2026-04-20T01:35:19.341249850Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.341253852Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+2026-04-20T01:35:19.341257839Z [err]      result = context.switch(value)
+2026-04-20T01:35:19.341261900Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.341265880Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+2026-04-20T01:35:19.341271737Z [err]      return self._execute_internal(
+2026-04-20T01:35:19.341275667Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.341279419Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2228, in _execute_internal
+2026-04-20T01:35:19.341283494Z [err]      ) = compile_state_cls.orm_pre_session_exec(
+2026-04-20T01:35:19.341287271Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.341290949Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 577, in orm_pre_session_exec
+2026-04-20T01:35:19.341295450Z [err]      session._autoflush()
+2026-04-20T01:35:19.341299396Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3051, in _autoflush
+2026-04-20T01:35:19.341303069Z [err]      raise e.with_traceback(sys.exc_info()[2])
+2026-04-20T01:35:19.341318708Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3040, in _autoflush
+2026-04-20T01:35:19.341323050Z [err]      self.flush()
+2026-04-20T01:35:19.341327308Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+2026-04-20T01:35:19.342321713Z [err]      self._flush(objects)
+2026-04-20T01:35:19.342326690Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+2026-04-20T01:35:19.342329225Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+2026-04-20T01:35:19.342336376Z [err]      with util.safe_reraise():
+2026-04-20T01:35:19.342338400Z [err]      return meth(
+2026-04-20T01:35:19.342343895Z [err]           ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.342346667Z [err]             ^^^^^
+2026-04-20T01:35:19.342350464Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+2026-04-20T01:35:19.342354556Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+2026-04-20T01:35:19.342357770Z [err]      raise exc_value.with_traceback(exc_tb)
+2026-04-20T01:35:19.342363549Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+2026-04-20T01:35:19.342369034Z [err]      flush_context.execute()
+2026-04-20T01:35:19.342373254Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2026-04-20T01:35:19.342377495Z [err]      rec.execute(self)
+2026-04-20T01:35:19.342381310Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+2026-04-20T01:35:19.342385324Z [err]      util.preloaded.orm_persistence.save_obj(
+2026-04-20T01:35:19.342389186Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2026-04-20T01:35:19.342392959Z [err]      _emit_insert_statements(
+2026-04-20T01:35:19.342396933Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+2026-04-20T01:35:19.342401451Z [err]      result = connection.execute(
+2026-04-20T01:35:19.342405092Z [err]               ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.343216657Z [err]      return connection._execute_clauseelement(
+2026-04-20T01:35:19.343223504Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.343229012Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+2026-04-20T01:35:19.343234600Z [err]      ret = self._execute_context(
+2026-04-20T01:35:19.343240091Z [err]            ^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.343245779Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+2026-04-20T01:35:19.343251569Z [err]      return self._exec_single_context(
+2026-04-20T01:35:19.343257287Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.343262591Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+2026-04-20T01:35:19.343266565Z [err]      self._handle_dbapi_exception(
+2026-04-20T01:35:19.343272235Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+2026-04-20T01:35:19.343278070Z [err]      raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-20T01:35:19.343283503Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:19.343288645Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:19.343293282Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:19.343298039Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:19.343303111Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:19.343308181Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:19.343313358Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:19.344080203Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:19.344087351Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:19.344092715Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:19.344097276Z [err]      value = await result
+2026-04-20T01:35:19.344101324Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:19.344105590Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:19.344109712Z [err]      self._handle_exception(error)
+2026-04-20T01:35:19.344113893Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:19.344120443Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:19.344125443Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:19.344129530Z [err]      raise translated_error from error
+2026-04-20T01:35:19.344133422Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:35:19.344137640Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:19.344141490Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:35:19.344715342Z [err]  [parameters: ('113bdc1fb3d5c780', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'a89b693c-7b24-4394-a9e0-d7d0242e9a8f', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:35:19.344721443Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:35:21.492098746Z [inf]  INFO:     100.64.0.3:61900 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:25.198544945Z [inf]  INFO:     100.64.0.14:20416 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:27.826072598Z [err]  2026-04-20 01:35:19.305 UTC [482] ERROR:  value too long for type character varying(20)
+2026-04-20T01:35:27.826080704Z [err]  2026-04-20 01:35:19.305 UTC [482] STATEMENT:  INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at
+2026-04-20T01:35:31.348271274Z [inf]  INFO:     100.64.0.13:50024 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:35.904032137Z [err]  2026-04-20 01:35:35,892 - routers.accounts - INFO - Created new account: Paper (b27443ad-1c80-4397-badc-b6b66fdb3388)
+2026-04-20T01:35:35.904037928Z [inf]  INFO:     100.64.0.7:17942 - "POST /api/accounts HTTP/1.1" 201 Created
+2026-04-20T01:35:36.195504797Z [inf]  INFO:     100.64.0.17:40728 - "PUT /api/settings HTTP/1.1" 200 OK
+2026-04-20T01:35:36.896736198Z [err]  2026-04-20 01:35:36,689 - httpx - INFO - HTTP Request: GET https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest?t=30896065962770999680625&q=1428138&v=3 "HTTP/1.1 200 OK"
+2026-04-20T01:35:38.874356235Z [err]  2026-04-20 01:35:38,870 - httpx - INFO - HTTP Request: GET https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement?t=30896065962770999680625&q=4755176920&v=3 "HTTP/1.1 200 OK"
+2026-04-20T01:35:39.129122895Z [err]      ^^^^^^^^^^
+2026-04-20T01:35:39.129133707Z [err]    File "/usr/local/lib/python3.12/asyncio/tasks.py", line 385, in __wakeup
+2026-04-20T01:35:39.129137151Z [err]  2026-04-20 01:35:38,900 - main - ERROR - Global Error: Traceback (most recent call last):
+2026-04-20T01:35:39.129142515Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+2026-04-20T01:35:39.129143413Z [err]      future.result()
+2026-04-20T01:35:39.129147495Z [err]      self._rows = deque(await prepared_stmt.fetch(*parameters))
+2026-04-20T01:35:39.129152560Z [err]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.129156551Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+2026-04-20T01:35:39.129160160Z [err]      data = await self.__bind_execute(args, 0, timeout)
+2026-04-20T01:35:39.129163817Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.129167517Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+2026-04-20T01:35:39.129171600Z [err]      data, status, _ = await self.__do_execute(
+2026-04-20T01:35:39.129175111Z [err]                        ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.129180113Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+2026-04-20T01:35:39.129183493Z [err]      return await executor(protocol)
+2026-04-20T01:35:39.129189771Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.129193791Z [err]    File "asyncpg/protocol/protocol.pyx", line 207, in bind_execute
+2026-04-20T01:35:39.129203525Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 289, in __await__
+2026-04-20T01:35:39.129207389Z [err]      yield self  # This tells Task to wait for completion.
+2026-04-20T01:35:39.130750468Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:39.130752998Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:39.130757928Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.130762256Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:39.130764803Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:39.130767888Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 202, in result
+2026-04-20T01:35:39.130769556Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:39.130772899Z [err]      value = await result
+2026-04-20T01:35:39.130778417Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:39.130779458Z [err]      raise self._exception.with_traceback(self._exception_tb)
+2026-04-20T01:35:39.130783681Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:39.130786420Z [err]  asyncpg.exceptions.StringDataRightTruncationError: value too long for type character varying(20)
+2026-04-20T01:35:39.130791189Z [err]  
+2026-04-20T01:35:39.130798774Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:39.130803798Z [err]  
+2026-04-20T01:35:39.130808604Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:39.130814568Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:39.130818699Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:39.130823306Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:39.130827629Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:39.132137344Z [err]      self._handle_exception(error)
+2026-04-20T01:35:39.132143990Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:39.132145474Z [err]      raise exc
+2026-04-20T01:35:39.132150418Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:39.132153025Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-04-20T01:35:39.132156790Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:39.132160959Z [err]      await self.app(scope, receive, _send)
+2026-04-20T01:35:39.132163928Z [err]      raise translated_error from error
+2026-04-20T01:35:39.132168194Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 191, in __call__
+2026-04-20T01:35:39.132170691Z [err]  sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:39.132175753Z [err]  
+2026-04-20T01:35:39.132177943Z [err]      with recv_stream, send_stream, collapse_excgroups():
+2026-04-20T01:35:39.132182254Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:39.132184996Z [err]                                     ^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.132188313Z [err]  
+2026-04-20T01:35:39.132191973Z [err]    File "/usr/local/lib/python3.12/contextlib.py", line 158, in __exit__
+2026-04-20T01:35:39.132193883Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:39.132197433Z [err]      self.gen.throw(value)
+2026-04-20T01:35:39.132201931Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+2026-04-20T01:35:39.133549108Z [err]      await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-04-20T01:35:39.133549648Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-04-20T01:35:39.133556321Z [err]      response = await self.dispatch_func(request, call_next)
+2026-04-20T01:35:39.133558790Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:39.133561592Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.133565512Z [err]      raise exc
+2026-04-20T01:35:39.133566349Z [err]    File "/app/auth_middleware.py", line 82, in dispatch
+2026-04-20T01:35:39.133570487Z [err]      return await call_next(request)
+2026-04-20T01:35:39.133574540Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.133579402Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-04-20T01:35:39.133583096Z [err]      raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-04-20T01:35:39.133589373Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-04-20T01:35:39.133593344Z [err]      await self.app(scope, receive_or_disconnect, send_no_error)
+2026-04-20T01:35:39.133597415Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 95, in __call__
+2026-04-20T01:35:39.133601551Z [err]      await self.simple_response(scope, receive, send, request_headers=headers)
+2026-04-20T01:35:39.133605123Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 153, in simple_response
+2026-04-20T01:35:39.133608351Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.133611803Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-04-20T01:35:39.134943116Z [err]      response = await f(request)
+2026-04-20T01:35:39.134946007Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:39.134949980Z [err]                 ^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.134949991Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+2026-04-20T01:35:39.134953700Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:39.134957999Z [err]      await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-04-20T01:35:39.134959899Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-04-20T01:35:39.134963394Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:39.134967196Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.134969295Z [err]      raise exc
+2026-04-20T01:35:39.134974138Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+2026-04-20T01:35:39.134975139Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:39.134981182Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:39.134982770Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:39.134986982Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 107, in app
+2026-04-20T01:35:39.134989327Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+2026-04-20T01:35:39.134994395Z [err]      await route.handle(scope, receive, send)
+2026-04-20T01:35:39.134998814Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+2026-04-20T01:35:39.135003916Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.136306958Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2228, in _execute_internal
+2026-04-20T01:35:39.136311071Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 426, in app
+2026-04-20T01:35:39.136314432Z [err]      ) = compile_state_cls.orm_pre_session_exec(
+2026-04-20T01:35:39.136318728Z [err]      raw_response = await run_endpoint_function(
+2026-04-20T01:35:39.136323421Z [err]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.136327495Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 314, in run_endpoint_function
+2026-04-20T01:35:39.136331597Z [err]      return await dependant.call(**values)
+2026-04-20T01:35:39.136335552Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.136339279Z [err]    File "/app/routers/sync.py", line 476, in sync_ibkr
+2026-04-20T01:35:39.136343133Z [err]      result = await db.execute(
+2026-04-20T01:35:39.136346881Z [err]               ^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.136350758Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 449, in execute
+2026-04-20T01:35:39.136355022Z [err]      result = await greenlet_spawn(
+2026-04-20T01:35:39.136358910Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.136362643Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+2026-04-20T01:35:39.136366226Z [err]      result = context.switch(value)
+2026-04-20T01:35:39.136369970Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.136374014Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+2026-04-20T01:35:39.136377897Z [err]      return self._execute_internal(
+2026-04-20T01:35:39.136381685Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.137810985Z [err]      rec.execute(self)
+2026-04-20T01:35:39.137816577Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+2026-04-20T01:35:39.137834110Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.137840182Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 577, in orm_pre_session_exec
+2026-04-20T01:35:39.137845382Z [err]      session._autoflush()
+2026-04-20T01:35:39.137850638Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3051, in _autoflush
+2026-04-20T01:35:39.137854572Z [err]      raise e.with_traceback(sys.exc_info()[2])
+2026-04-20T01:35:39.137858570Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3040, in _autoflush
+2026-04-20T01:35:39.137863163Z [err]      self.flush()
+2026-04-20T01:35:39.137867329Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+2026-04-20T01:35:39.137871260Z [err]      self._flush(objects)
+2026-04-20T01:35:39.137875931Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+2026-04-20T01:35:39.137879429Z [err]      with util.safe_reraise():
+2026-04-20T01:35:39.137883002Z [err]           ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.137886751Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+2026-04-20T01:35:39.137890199Z [err]      raise exc_value.with_traceback(exc_tb)
+2026-04-20T01:35:39.137893648Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+2026-04-20T01:35:39.137896951Z [err]      flush_context.execute()
+2026-04-20T01:35:39.137901095Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2026-04-20T01:35:39.139164409Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+2026-04-20T01:35:39.139170831Z [err]      ret = self._execute_context(
+2026-04-20T01:35:39.139174434Z [err]      util.preloaded.orm_persistence.save_obj(
+2026-04-20T01:35:39.139176924Z [err]            ^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.139182577Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2026-04-20T01:35:39.139182847Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+2026-04-20T01:35:39.139189216Z [err]      return self._exec_single_context(
+2026-04-20T01:35:39.139189336Z [err]      _emit_insert_statements(
+2026-04-20T01:35:39.139195822Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.139198496Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+2026-04-20T01:35:39.139203098Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+2026-04-20T01:35:39.139205338Z [err]      result = connection.execute(
+2026-04-20T01:35:39.139209409Z [err]      self._handle_dbapi_exception(
+2026-04-20T01:35:39.139211222Z [err]               ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.139216938Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+2026-04-20T01:35:39.139221186Z [err]      return meth(
+2026-04-20T01:35:39.139224838Z [err]             ^^^^^
+2026-04-20T01:35:39.139228458Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+2026-04-20T01:35:39.139232328Z [err]      return connection._execute_clauseelement(
+2026-04-20T01:35:39.139235894Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.140387295Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+2026-04-20T01:35:39.140391587Z [err]      raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-20T01:35:39.140396140Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:39.140400237Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:39.140404148Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:39.140408432Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:39.140412067Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:39.140415762Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:39.140420278Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:39.140425285Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:39.140428957Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.140432973Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:39.140438775Z [err]      value = await result
+2026-04-20T01:35:39.140442706Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:39.140446646Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:39.140450054Z [err]      self._handle_exception(error)
+2026-04-20T01:35:39.140454086Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:39.141758843Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:39.141763670Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:39.141768066Z [err]      raise translated_error from error
+2026-04-20T01:35:39.141771695Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:35:39.141775376Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:39.141779952Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:35:39.141784151Z [err]  [parameters: ('69a1cc71a3266fec', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'b27443ad-1c80-4397-badc-b6b66fdb3388', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:35:39.141789247Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:35:39.141795098Z [err]  
+2026-04-20T01:35:39.141800916Z [inf]  INFO:     100.64.0.6:30644 - "POST /api/sync HTTP/1.1" 500 Internal Server Error
+2026-04-20T01:35:39.143305752Z [err]  ERROR:    Exception in ASGI application
+2026-04-20T01:35:39.143309720Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:39.143313424Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+2026-04-20T01:35:39.143317789Z [err]      self._rows = deque(await prepared_stmt.fetch(*parameters))
+2026-04-20T01:35:39.143321942Z [err]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.143325442Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+2026-04-20T01:35:39.143329049Z [err]      data = await self.__bind_execute(args, 0, timeout)
+2026-04-20T01:35:39.143332680Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.143336218Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 241, in __bind_execute
+2026-04-20T01:35:39.143340004Z [err]      data, status, _ = await self.__do_execute(
+2026-04-20T01:35:39.143343435Z [err]                        ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.143346992Z [err]    File "/usr/local/lib/python3.12/site-packages/asyncpg/prepared_stmt.py", line 230, in __do_execute
+2026-04-20T01:35:39.143350635Z [err]      return await executor(protocol)
+2026-04-20T01:35:39.143354524Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.143358406Z [err]    File "asyncpg/protocol/protocol.pyx", line 207, in bind_execute
+2026-04-20T01:35:39.143361830Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 289, in __await__
+2026-04-20T01:35:39.143365455Z [err]      yield self  # This tells Task to wait for completion.
+2026-04-20T01:35:39.143368797Z [err]      ^^^^^^^^^^
+2026-04-20T01:35:39.143372168Z [err]    File "/usr/local/lib/python3.12/asyncio/tasks.py", line 385, in __wakeup
+2026-04-20T01:35:39.143376122Z [err]      future.result()
+2026-04-20T01:35:39.144610977Z [err]    File "/usr/local/lib/python3.12/asyncio/futures.py", line 202, in result
+2026-04-20T01:35:39.144617909Z [err]      raise self._exception.with_traceback(self._exception_tb)
+2026-04-20T01:35:39.144622370Z [err]  asyncpg.exceptions.StringDataRightTruncationError: value too long for type character varying(20)
+2026-04-20T01:35:39.144626921Z [err]  
+2026-04-20T01:35:39.144633774Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:39.144641772Z [err]  
+2026-04-20T01:35:39.144646086Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:39.144649861Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:39.144653724Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:39.144657801Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:39.144662400Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:39.144666697Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:39.144670469Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:39.144674269Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:39.144677969Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:39.144681709Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.144687584Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:39.144691722Z [err]      value = await result
+2026-04-20T01:35:39.144695231Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:39.144698855Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:39.146281685Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.146287542Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1138, in __call__
+2026-04-20T01:35:39.146291424Z [err]      self._handle_exception(error)
+2026-04-20T01:35:39.146292433Z [err]      await super().__call__(scope, receive, send)
+2026-04-20T01:35:39.146297781Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 107, in __call__
+2026-04-20T01:35:39.146299655Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:39.146304162Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:39.146308791Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:39.146313141Z [err]      raise translated_error from error
+2026-04-20T01:35:39.146317672Z [err]  sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:39.146322259Z [err]  
+2026-04-20T01:35:39.146326432Z [err]  The above exception was the direct cause of the following exception:
+2026-04-20T01:35:39.146331027Z [err]  
+2026-04-20T01:35:39.146335069Z [err]  Traceback (most recent call last):
+2026-04-20T01:35:39.146339058Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 416, in run_asgi
+2026-04-20T01:35:39.146342700Z [err]      result = await app(  # type: ignore[func-returns-value]
+2026-04-20T01:35:39.146347084Z [err]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.146351464Z [err]    File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+2026-04-20T01:35:39.146355281Z [err]      return await self.app(scope, receive, send)
+2026-04-20T01:35:39.147540835Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-04-20T01:35:39.147544587Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:39.147547167Z [err]      raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-04-20T01:35:39.147551735Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+2026-04-20T01:35:39.147556257Z [err]      raise exc
+2026-04-20T01:35:39.147560079Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-04-20T01:35:39.147564330Z [err]      await self.app(scope, receive, _send)
+2026-04-20T01:35:39.147569499Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 191, in __call__
+2026-04-20T01:35:39.147573238Z [err]      with recv_stream, send_stream, collapse_excgroups():
+2026-04-20T01:35:39.147577181Z [err]                                     ^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.147581233Z [err]    File "/usr/local/lib/python3.12/contextlib.py", line 158, in __exit__
+2026-04-20T01:35:39.147584829Z [err]      self.gen.throw(value)
+2026-04-20T01:35:39.147588629Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_utils.py", line 87, in collapse_excgroups
+2026-04-20T01:35:39.147593984Z [err]      raise exc
+2026-04-20T01:35:39.147598106Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-04-20T01:35:39.147601880Z [err]      response = await self.dispatch_func(request, call_next)
+2026-04-20T01:35:39.147606751Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.147610612Z [err]    File "/app/auth_middleware.py", line 82, in dispatch
+2026-04-20T01:35:39.147614319Z [err]      return await call_next(request)
+2026-04-20T01:35:39.147617861Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.148829308Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-04-20T01:35:39.148836509Z [err]      await self.app(scope, receive_or_disconnect, send_no_error)
+2026-04-20T01:35:39.148842306Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 95, in __call__
+2026-04-20T01:35:39.148847401Z [err]      await self.simple_response(scope, receive, send, request_headers=headers)
+2026-04-20T01:35:39.148851778Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 153, in simple_response
+2026-04-20T01:35:39.148856495Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.148860526Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-04-20T01:35:39.148865318Z [err]      await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-04-20T01:35:39.148869505Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:39.148874233Z [err]      raise exc
+2026-04-20T01:35:39.148878510Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:39.148882510Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:39.148887256Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-04-20T01:35:39.148893131Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.148898720Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+2026-04-20T01:35:39.148903744Z [err]      await self.middleware_stack(scope, receive, send)
+2026-04-20T01:35:39.148909601Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+2026-04-20T01:35:39.150194396Z [err]      await route.handle(scope, receive, send)
+2026-04-20T01:35:39.150201124Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+2026-04-20T01:35:39.150206187Z [err]      await self.app(scope, receive, send)
+2026-04-20T01:35:39.150210829Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 121, in app
+2026-04-20T01:35:39.150216322Z [err]      await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-04-20T01:35:39.150226542Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-04-20T01:35:39.150232521Z [err]      raise exc
+2026-04-20T01:35:39.150239213Z [err]    File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-04-20T01:35:39.150244378Z [err]      await app(scope, receive, sender)
+2026-04-20T01:35:39.150249264Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 107, in app
+2026-04-20T01:35:39.150253150Z [err]      response = await f(request)
+2026-04-20T01:35:39.150257207Z [err]                 ^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.150261631Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 426, in app
+2026-04-20T01:35:39.150266285Z [err]      raw_response = await run_endpoint_function(
+2026-04-20T01:35:39.150270154Z [err]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.150274151Z [err]    File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 314, in run_endpoint_function
+2026-04-20T01:35:39.150277989Z [err]      return await dependant.call(**values)
+2026-04-20T01:35:39.150282335Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.150286556Z [err]    File "/app/routers/sync.py", line 476, in sync_ibkr
+2026-04-20T01:35:39.150291387Z [err]      result = await db.execute(
+2026-04-20T01:35:39.151516525Z [err]               ^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.151521196Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 449, in execute
+2026-04-20T01:35:39.151525376Z [err]      result = await greenlet_spawn(
+2026-04-20T01:35:39.151528874Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.151532413Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+2026-04-20T01:35:39.151535982Z [err]      result = context.switch(value)
+2026-04-20T01:35:39.151539655Z [err]               ^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.151544004Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+2026-04-20T01:35:39.151547526Z [err]      return self._execute_internal(
+2026-04-20T01:35:39.151551399Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.151555119Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2228, in _execute_internal
+2026-04-20T01:35:39.151558823Z [err]      ) = compile_state_cls.orm_pre_session_exec(
+2026-04-20T01:35:39.151562328Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.151566540Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 577, in orm_pre_session_exec
+2026-04-20T01:35:39.151570167Z [err]      session._autoflush()
+2026-04-20T01:35:39.151574061Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3051, in _autoflush
+2026-04-20T01:35:39.151579444Z [err]      raise e.with_traceback(sys.exc_info()[2])
+2026-04-20T01:35:39.151585532Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3040, in _autoflush
+2026-04-20T01:35:39.151590010Z [err]      self.flush()
+2026-04-20T01:35:39.151594984Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+2026-04-20T01:35:39.152923658Z [err]      self._flush(objects)
+2026-04-20T01:35:39.152929028Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
+2026-04-20T01:35:39.152929453Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+2026-04-20T01:35:39.152934147Z [err]      with util.safe_reraise():
+2026-04-20T01:35:39.152938157Z [err]           ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.152942624Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+2026-04-20T01:35:39.152946243Z [err]      raise exc_value.with_traceback(exc_tb)
+2026-04-20T01:35:39.152949543Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+2026-04-20T01:35:39.152952948Z [err]      flush_context.execute()
+2026-04-20T01:35:39.152956391Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2026-04-20T01:35:39.152961069Z [err]      rec.execute(self)
+2026-04-20T01:35:39.152964803Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+2026-04-20T01:35:39.152968228Z [err]      util.preloaded.orm_persistence.save_obj(
+2026-04-20T01:35:39.152971857Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2026-04-20T01:35:39.152975871Z [err]      _emit_insert_statements(
+2026-04-20T01:35:39.152979495Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+2026-04-20T01:35:39.152983217Z [err]      result = connection.execute(
+2026-04-20T01:35:39.152987360Z [err]               ^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.152992722Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+2026-04-20T01:35:39.152997353Z [err]      return meth(
+2026-04-20T01:35:39.153002036Z [err]             ^^^^^
+2026-04-20T01:35:39.154466801Z [err]      self.dialect.do_execute(
+2026-04-20T01:35:39.154469517Z [err]      return connection._execute_clauseelement(
+2026-04-20T01:35:39.154477127Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-04-20T01:35:39.154483410Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.154485553Z [err]      cursor.execute(statement, parameters)
+2026-04-20T01:35:39.154490165Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+2026-04-20T01:35:39.154494214Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-04-20T01:35:39.154495838Z [err]      ret = self._execute_context(
+2026-04-20T01:35:39.154501424Z [err]            ^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.154503434Z [err]      self._adapt_connection.await_(
+2026-04-20T01:35:39.154506610Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+2026-04-20T01:35:39.154510480Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-04-20T01:35:39.154518059Z [err]      return self._exec_single_context(
+2026-04-20T01:35:39.154522268Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.154526303Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+2026-04-20T01:35:39.154530094Z [err]      self._handle_dbapi_exception(
+2026-04-20T01:35:39.154533666Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
+2026-04-20T01:35:39.154537156Z [err]      raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-20T01:35:39.154540737Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+2026-04-20T01:35:39.155944004Z [err]      return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-04-20T01:35:39.155946835Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-04-20T01:35:39.155957160Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-20T01:35:39.155959506Z [err]      raise translated_error from error
+2026-04-20T01:35:39.155967611Z [err]  sqlalchemy.exc.DBAPIError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+2026-04-20T01:35:39.155974582Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-04-20T01:35:39.155975159Z [err]  (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.StringDataRightTruncationError'>: value too long for type character varying(20)
+2026-04-20T01:35:39.155983597Z [err]  [SQL: INSERT INTO trades (id, user_id, account_id, ticker, underlying_symbol, entry_date, entry_time, exit_date, quantity, entry_price, exit_price, commissions, net_pnl, gross_pnl, asset_class, strike, expiry, multiplier, put_call, strategy, psychology_tag, is_error, notes) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::DATE, $7::VARCHAR, $8::DATE, $9::FLOAT, $10::FLOAT, $11::FLOAT, $12::FLOAT, $13::FLOAT, $14::FLOAT, $15::VARCHAR, $16::FLOAT, $17::DATE, $18::INTEGER, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::BOOLEAN, $23::VARCHAR) RETURNING trades.created_at, trades.updated_at]
+2026-04-20T01:35:39.155984395Z [err]      value = await result
+2026-04-20T01:35:39.155990371Z [err]              ^^^^^^^^^^^^
+2026-04-20T01:35:39.155995245Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-04-20T01:35:39.155999594Z [err]      self._handle_exception(error)
+2026-04-20T01:35:39.156004419Z [err]    File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-04-20T01:35:39.156009140Z [err]      self._adapt_connection._handle_exception(error)
+2026-04-20T01:35:39.157297434Z [err]  [parameters: ('69a1cc71a3266fec', '27b97594-d2be-45ff-93b9-82e2ab922c1c', 'b27443ad-1c80-4397-badc-b6b66fdb3388', 'IWM   260219C00265000', None, datetime.date(2026, 2, 19), '111748', datetime.date(2026, 2, 19), 35.0, 0.32, 0.32, 25.11625, 0.0, 25.11625, 'OPT', 265.0, datetime.date(2026, 2, 19), 100, 'C', None, 'none', False, None)]
+2026-04-20T01:35:39.157303136Z [err]  (Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-20T01:35:41.460973681Z [inf]  INFO:     100.64.0.17:55744 - "GET /api/health HTTP/1.1" 200 OK
+2026-04-20T01:35:48.053023701Z [err]  2026-04-20 01:35:38.893 UTC [482] ERROR:  value too long for type character varying(20)
