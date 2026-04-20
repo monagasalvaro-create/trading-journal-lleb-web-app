@@ -172,6 +172,8 @@ GitHub Actions CI requiere secret `FERNET_KEY_CI` configurado en Settings → Se
 | `FERNET_KEY` inválida en Railway | Variable no configurada o mal copiada | Generar con Fernet.generate_key(), pegar sin espacios |
 | Frontend muestra pantalla en blanco en prod | `dist/` no copiado en Docker stage 2 | Verificar `COPY --from=frontend-builder /frontend/dist /frontend/dist` |
 | `email-validator` ImportError al arrancar | Pydantic EmailStr requiere la lib | Está en `backend/requirements.txt` — verificar pip install |
+| `/api/auth/me` siempre 401 en prod | `auth_middleware.py` eximía todo `/api/auth/` incl. `/me` | Exempt list narrowed a `login/register/refresh` — `/me` requiere JWT |
+| Pantalla en blanco tras login | Hooks llamados después de `return` condicional en `App` | `App` split en auth-gate + `AppContent`; nunca poner hooks tras early return |
 
 ## Convenciones
 
@@ -184,11 +186,9 @@ GitHub Actions CI requiere secret `FERNET_KEY_CI` configurado en Settings → Se
 
 ## Pendientes de seguridad (antes de 50 usuarios)
 
-`routers/assets.py` — AssetBoardItem y BoardNote se consultan sin filtro `user_id`. Riesgo MEDIO: solo se activa si dos usuarios diferentes tienen el mismo `account_id` (improbable con UUIDs, imposible con el sistema actual). Parchear antes de invitar usuarios externos.
-
-`routers/sync.py` `/demo-data` — endpoint DEV-only sin `user_id`; protegido por `TRADING_JOURNAL_DEV` env var. No crítico para producción.
-
-`routers/metrics.py` — revisar que el filtro `if user_id:` sea siempre `if user_id` (no `if user_id is not None`) para evitar bypass con user_id vacío.
+- `routers/assets.py` — AssetBoardItem/BoardNote sin filtro `user_id`. Riesgo MEDIO; parchear en Fase 4.
+- `routers/sync.py /demo-data` — DEV-only, protegido por `TRADING_JOURNAL_DEV`. No crítico en prod.
+- `routers/metrics.py` — confirmar que `if user_id:` no sea bypassable con string vacío.
 
 ## Referencias
 

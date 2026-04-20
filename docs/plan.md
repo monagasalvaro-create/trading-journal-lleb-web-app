@@ -31,7 +31,7 @@ Completada en commits `7d9c4dc` + `7a006ed`. Cambios realizados:
 
 ---
 
-## Fase 2 — PostgreSQL único ⏳
+## Fase 2 — PostgreSQL único ✅
 
 **Objetivo**: eliminar la divergencia SQLite dev / PostgreSQL prod. Una sola DB en todos los entornos.
 
@@ -61,33 +61,36 @@ Correr skill `migration-writer` antes de commit si se añaden migraciones nuevas
 
 ## Fase 3 — Deploy Railway ✅
 
-**Objetivo**: app corriendo en Railway con Postgres addon, frontend servido por el mismo proceso.
+**URL de producción**: `https://trading-journal-lleb-web-app-production.up.railway.app`
 
-### Archivos a crear/modificar
+### Archivos modificados / creados
 
-| Archivo | Cambio |
-|---------|--------|
-| `railway.json` (nuevo) | Builder DOCKERFILE, startCommand uvicorn, healthcheckPath `/api/health`. |
-| `backend/Dockerfile` | Multi-stage: stage 1 build frontend (node), stage 2 Python copia `dist/`. |
-| `.github/workflows/ci.yml` (nuevo) | Job `test` (pytest + Postgres service), job `build` (Docker smoke), job `deploy` (Railway webhook en push a main). |
-| `tj-connector/api.py` | CORS include dominio Railway en `ALLOWED_ORIGINS`. |
+| Archivo | Cambio real |
+|---------|-------------|
+| `Dockerfile` (raíz) | Multi-stage: `node:20-alpine` build frontend → `python:3.12-slim` + `COPY --from=frontend-builder /frontend/dist /frontend/dist`. CMD shell form con `${PORT:-8000}`. |
+| `railway.json` | Builder DOCKERFILE, healthcheckPath `/api/health`. Sin `startCommand` (CMD del Dockerfile lo maneja). |
+| `.github/workflows/ci.yml` | Job `test` (pytest + Postgres 16 service), job `build` (Docker smoke). |
+| `tj-connector/api.py` | Dominio real Railway en `_WEB_APP_ORIGINS`. |
+| `.gitignore` | `lib/` → `/lib/` (raíz); `frontend/src/lib/` se estaba ignorando y el build de Railway fallaba. |
 
-### Variables Railway a configurar
+### Variables configuradas en Railway
 
-- `DATABASE_URL` — inyectada automáticamente por addon Postgres.
-- `JWT_SECRET` — `secrets.token_hex(32)`.
-- `FERNET_KEY` — `Fernet.generate_key()`.
-- `ALLOWED_ORIGINS` — dominio real (ej. `https://app.tradingjournalpro.com`).
-- `ENVIRONMENT=production`.
+| Variable | Cómo |
+|----------|------|
+| `DATABASE_URL` | Auto-inyectada por addon Postgres — NO configurar manualmente |
+| `JWT_SECRET` | `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `FERNET_KEY` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `ALLOWED_ORIGINS` | `https://trading-journal-lleb-web-app-production.up.railway.app` |
+| `ENVIRONMENT` | `production` |
 
-### Verificación
+GitHub Actions CI requiere secret `FERNET_KEY_CI` en Settings → Secrets del repo.
 
-```bash
-railway up  # desde rama staging
-curl https://<staging>.up.railway.app/api/health  # → {"status":"ok"}
-```
+### Hotfixes post-deploy (commit `34438d3`)
 
-Correr skill `security-reviewer-tj` sobre el diff completo antes de merge a main.
+Dos bugs encontrados al probar login en producción:
+
+1. **`backend/auth_middleware.py`** — exempt prefix `/api/auth/` incluía `/api/auth/me`, que requiere JWT. `request.state.user_id` nunca se inyectaba → 401 permanente → loop clearAuthTokens + reload. Fix: narrowed a `login`, `register`, `refresh` únicamente.
+2. **`frontend/src/App.tsx`** — hooks (`useTheme`, `useQuery` × 2, `useState` × 3, etc.) se llamaban después de `if (!isAuthenticated) return <LoginPage/>`. Al hacer login, React detectaba distinto número de hooks entre renders → pantalla en blanco. Fix: split en `App` (auth gate) + `AppContent`.
 
 ---
 
