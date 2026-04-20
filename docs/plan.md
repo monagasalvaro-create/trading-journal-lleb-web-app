@@ -12,7 +12,7 @@ Actualizar el estado de cada fase al completarla.
 | Fase 1 — Reorganización de archivos | ✅ Completada | `7d9c4dc`, `7a006ed`, `859d60b` |
 | Fase 2 — PostgreSQL único | ✅ Completada | ver commits de Fase 2 |
 | Fase 3 — Deploy Railway | ✅ Completada | ver commits de Fase 3 |
-| Fase 4 — Canal de distribución Connector | ⏳ Pendiente | — |
+| Fase 4 — Canal de distribución Connector | ✅ Completada | `913c984` |
 
 Remote: `https://github.com/monagasalvaro-create/trading-journal-lleb-web-app.git` (branch `main`)
 

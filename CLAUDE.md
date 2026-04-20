@@ -25,7 +25,7 @@ Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Conne
 | Fase 1 — Reorganización de archivos | ✅ Completada | Scripts, docs, tests reubicados |
 | Fase 2 — PostgreSQL único | ✅ Completada | SQLite eliminado; docker-compose con Postgres 16 |
 | Fase 3 — Deploy Railway | ✅ Completada | Dockerfile multi-stage, railway.json, GitHub Actions CI |
-| Fase 4 — Distribución TJ Connector | ⏳ Pendiente | Descarga del Connector desde la web app |
+| Fase 4 — Distribución TJ Connector | ✅ Completada | Descarga del Connector desde la web app y CI via GitHub Actions |
 
 Ver `docs/plan.md` para el roadmap detallado.
 
@@ -51,7 +51,7 @@ Ver `docs/plan.md` para el roadmap detallado.
 | `routers/accounts.py` | ✅ | rename/delete con ownership check |
 | `routers/settings.py` | ✅ | `get_or_create_settings(db, account_id, user_id)` — siempre los 3 args |
 | `routers/sync.py` | ✅ | Trade, AccountEquity, Settings, purge, last-sync filtran user_id |
-| `routers/assets.py` | ⚠️ Pendiente | Riesgo MEDIO — parchear en Fase 4 o antes |
+| `routers/assets.py` | ✅ | Completo |
 
 Patrón correcto en cualquier endpoint:
 
@@ -186,7 +186,7 @@ GitHub Actions CI requiere secret `FERNET_KEY_CI` configurado en Settings → Se
 
 ## Pendientes de seguridad (antes de 50 usuarios)
 
-- `routers/assets.py` — AssetBoardItem/BoardNote sin filtro `user_id`. Riesgo MEDIO; parchear en Fase 4.
+- ✔ `routers/assets.py` — Multi-tenant isolation added en Fase 4.
 - `routers/sync.py /demo-data` — DEV-only, protegido por `TRADING_JOURNAL_DEV`. No crítico en prod.
 - `routers/metrics.py` — confirmar que `if user_id:` no sea bypassable con string vacío.
 
