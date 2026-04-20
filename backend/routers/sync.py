@@ -321,6 +321,30 @@ def parse_nav_from_xml(xml_content: str) -> List[dict]:
         return []
 
 
+async def resolve_account_id(db: AsyncSession, account_id: str, user_id: str) -> str:
+    """Resolve 'default' to the user's real account UUID when needed.
+
+    list_accounts creates UUID rows for real users, so X-Account-ID: 'default'
+    (from stale localStorage) must be translated to the actual account PK before
+    any DB write — otherwise step-6 of sync_ibkr tries to INSERT id='default'
+    which collides with the legacy system-user row.
+    """
+    result = await db.execute(
+        select(Settings.id).where(Settings.id == account_id, Settings.user_id == user_id)
+    )
+    found = result.scalar_one_or_none()
+    if found:
+        return found
+    if user_id != "system" and account_id == "default":
+        result = await db.execute(
+            select(Settings.id).where(Settings.user_id == user_id).limit(1)
+        )
+        found = result.scalar_one_or_none()
+        if found:
+            return found
+    return account_id
+
+
 async def get_stored_credentials(db: AsyncSession, account_id: str, user_id: str) -> Tuple[Optional[str], Optional[str]]:
     """Get stored IBKR credentials from Settings for the given account + user."""
     result = await db.execute(
@@ -354,12 +378,17 @@ async def sync_ibkr(
     """
     account_id = x_account_id or "default"
     user_id = get_user_id_from_request(request)
+    user_id_str = user_id or "system"
+
+    # Resolve 'default' → real UUID before any DB write to avoid PK conflicts.
+    account_id = await resolve_account_id(db, account_id, user_id_str)
+
     # Get credentials - prefer request params, fallback to stored for the active account
     token = body.token if body and body.token else None
     query_id = body.query_id if body and body.query_id else None
 
     if not token or not query_id:
-        stored_token, stored_query_id = await get_stored_credentials(db, account_id, user_id or "system")
+        stored_token, stored_query_id = await get_stored_credentials(db, account_id, user_id_str)
         token = token or stored_token
         query_id = query_id or stored_query_id
 
@@ -448,7 +477,7 @@ async def sync_ibkr(
                 select(Trade).where(
                     Trade.id == trade_id,
                     Trade.account_id == account_id,
-                    Trade.user_id == (user_id or "system"),
+                    Trade.user_id == user_id_str,
                 )
             )
             existing_trade = result.scalar_one_or_none()
@@ -466,7 +495,7 @@ async def sync_ibkr(
                 new_trade = Trade(
                     id=trade_id,
                     account_id=account_id,
-                    user_id=user_id or "system",
+                    user_id=user_id_str,
                     ticker=trade_data["ticker"],
                     underlying_symbol=trade_data.get("underlying_symbol"),
                     entry_date=trade_data["entry_date"],
@@ -495,7 +524,7 @@ async def sync_ibkr(
             result = await db.execute(
                 select(AccountEquity).where(
                     AccountEquity.account_id == account_id,
-                    AccountEquity.user_id == (user_id or "system"),
+                    AccountEquity.user_id == user_id_str,
                     AccountEquity.date == nav_record["date"],
                 )
             )
@@ -510,7 +539,7 @@ async def sync_ibkr(
             else:
                 new_nav = AccountEquity(
                     account_id=account_id,
-                    user_id=user_id or "system",
+                    user_id=user_id_str,
                     date=nav_record["date"],
                     total_equity=nav_record["total_equity"],
                     cash_balance=nav_record.get("cash_balance"),
@@ -521,15 +550,17 @@ async def sync_ibkr(
                 db.add(new_nav)
                 nav_imported += 1
         
-        # Step 6: Record sync timestamp for this account
+        # Step 6: Record sync timestamp for this account.
+        # account_id is already resolved to the real UUID (via resolve_account_id above),
+        # so the exact-match query should always find the row.
         result = await db.execute(
-            select(Settings).where(Settings.id == account_id, Settings.user_id == (user_id or "system"))
+            select(Settings).where(Settings.id == account_id, Settings.user_id == user_id_str)
         )
         settings_row = result.scalar_one_or_none()
         if settings_row:
             settings_row.last_sync_at = datetime.utcnow()
         else:
-            db.add(Settings(id=account_id, account_name="Account 1", user_id=user_id or "system", last_sync_at=datetime.utcnow()))
+            logger.warning("Settings row not found for account %s / user %s — skipping last_sync_at update", account_id, user_id_str)
             
         try:
             await db.commit()

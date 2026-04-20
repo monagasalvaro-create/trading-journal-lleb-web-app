@@ -65,13 +65,17 @@ function CredentialPanel({ accountId, hasCredentials, onClose }: CredentialPanel
         }
         setIsSyncing(true);
         try {
-            await syncApi.sync(accountId);
-            queryClient.invalidateQueries({ queryKey: ['trades'] });
-            queryClient.invalidateQueries({ queryKey: ['metrics'] });
-            queryClient.invalidateQueries({ queryKey: ['last-sync'] });
-            setTestResult({ success: true, message: t('accountManager.syncCompleted') });
-        } catch {
-            setTestResult({ success: false, message: t('accountManager.syncFailed') });
+            const result = await syncApi.sync(accountId);
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ['trades'] });
+                queryClient.invalidateQueries({ queryKey: ['metrics'] });
+                queryClient.invalidateQueries({ queryKey: ['last-sync'] });
+                setTestResult({ success: true, message: result.message || t('accountManager.syncCompleted') });
+            } else {
+                setTestResult({ success: false, message: result.message || t('accountManager.syncFailed') });
+            }
+        } catch (err: any) {
+            setTestResult({ success: false, message: err?.message || t('accountManager.syncFailed') });
         } finally {
             setIsSyncing(false);
         }
