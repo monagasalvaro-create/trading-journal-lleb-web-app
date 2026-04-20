@@ -23,6 +23,12 @@ async def calculate_strikes(symbol: str) -> dict[str, Any]:
 
 def _calculate_strikes_sync(symbol: str) -> dict[str, Any]:
     """Synchronous strike calculation — runs in executor thread."""
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     try:
         from ib_insync import IB, Stock
         import random

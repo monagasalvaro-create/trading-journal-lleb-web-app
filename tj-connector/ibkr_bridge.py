@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 def _connect_ib(client_id: int):
     """Create and connect an IB instance, auto-detecting the port. Returns None on failure."""
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     from ib_insync import IB
     import random
     
