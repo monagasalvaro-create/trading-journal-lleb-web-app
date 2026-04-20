@@ -58,6 +58,17 @@ export function Sidebar({
     const activeAccount = accounts.find((a) => a.id === activeAccountId);
     const activeAccountName = activeAccount?.account_name ?? null;
 
+    // If localStorage has "default" but the user's real account has a UUID,
+    // auto-switch so all subsequent API calls send the correct X-Account-ID.
+    useEffect(() => {
+        if (accounts.length > 0 && !accounts.find((a) => a.id === activeAccountId)) {
+            const firstId = accounts[0].id;
+            setActiveAccountId(firstId);
+            onAccountSwitch?.(firstId);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accounts]);
+
     const formatTimeAgo = (dateString: string): string => {
         const now = new Date();
         const past = new Date(dateString);

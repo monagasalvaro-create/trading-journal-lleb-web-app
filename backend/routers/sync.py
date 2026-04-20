@@ -328,6 +328,14 @@ async def get_stored_credentials(db: AsyncSession, account_id: str, user_id: str
     )
     settings = result.scalar_one_or_none()
 
+    # Fallback: if account_id="default" but the user's real account has a UUID
+    # (created by list_accounts or get_or_create_settings), find it by user_id alone.
+    if settings is None and user_id != "system" and account_id == "default":
+        result = await db.execute(
+            select(Settings).where(Settings.user_id == user_id).limit(1)
+        )
+        settings = result.scalar_one_or_none()
+
     if settings:
         return decrypt(settings.flex_token) if settings.flex_token else None, settings.query_id
     return None, None

@@ -2,9 +2,11 @@
 Settings router for managing application configuration and IBKR credentials.
 Supports multi-account isolation via X-Account-ID request header.
 """
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 import httpx
 import logging
 from typing import Optional
@@ -24,16 +26,42 @@ IBKR_FLEX_URL = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexSta
 
 async def get_or_create_settings(db: AsyncSession, account_id: str = "default", user_id: str = "system") -> Settings:
     """Get existing settings for account_id + user_id or create with defaults."""
+    # 1. Exact match
     result = await db.execute(
         select(Settings).where(Settings.id == account_id, Settings.user_id == user_id)
     )
     settings = result.scalar_one_or_none()
+    if settings:
+        return settings
 
-    if not settings:
-        settings = Settings(id=account_id, account_name="Account 1", user_id=user_id)
-        db.add(settings)
+    # 2. Real users requesting "default": return their existing account if any.
+    #    Avoids PK conflict when id="default" already belongs to another user.
+    if user_id != "system" and account_id == "default":
+        result = await db.execute(
+            select(Settings).where(Settings.user_id == user_id).limit(1)
+        )
+        settings = result.scalar_one_or_none()
+        if settings:
+            return settings
+
+    # 3. Create — real users get UUID to prevent PK collision on "default"
+    effective_id = account_id if user_id == "system" else (
+        str(uuid.uuid4()) if account_id == "default" else account_id
+    )
+    settings = Settings(id=effective_id, account_name="Account 1", user_id=user_id)
+    db.add(settings)
+    try:
         await db.commit()
         await db.refresh(settings)
+    except IntegrityError:
+        await db.rollback()
+        # Race condition: another concurrent request created it — fetch it
+        result = await db.execute(
+            select(Settings).where(Settings.user_id == user_id).limit(1)
+        )
+        settings = result.scalar_one_or_none()
+        if not settings:
+            raise
 
     return settings
 
