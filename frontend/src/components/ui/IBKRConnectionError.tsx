@@ -36,20 +36,15 @@ export function IBKRConnectionError({ error, className }: IBKRConnectionErrorPro
                             </p>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-border/40">
+                        <div className="flex mt-4 pt-4 border-t border-border/40">
                             <a
-                                href="/api/downloads/connector/latest?platform=mac"
-                                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 rounded-md transition-colors"
+                                href="/api/downloads/connector/latest"
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="inline-flex items-center justify-center gap-2 px-3 py-2 w-full sm:w-auto text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
                             >
                                 <Download className="w-3.5 h-3.5" />
-                                {t('error.downloadConnectorMac')}
-                            </a>
-                            <a
-                                href="/api/downloads/connector/latest?platform=win"
-                                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 rounded-md transition-colors"
-                            >
-                                <Download className="w-3.5 h-3.5" />
-                                {t('error.downloadConnectorWin')}
+                                {t('error.downloadConnector')}
                             </a>
                         </div>
                         

@@ -169,8 +169,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'error.ibkrDisconnected': 'Interactive Brokers Platform Required',
     'error.ibkrDisconnectedDescription': 'To ensure this section functions correctly, please verify that Interactive Brokers (TWS or Gateway) is running with the API properly configured.',
     'error.technicalDetails': 'Technical Details',
-    'error.downloadConnectorMac': 'Download Connector (macOS)',
-    'error.downloadConnectorWin': 'Download Connector (Windows)',
+    'error.downloadConnector': 'Download / Update Connector',
 
     // Equity Curve
     'equityCurve.title': 'Equity Curve',
@@ -467,8 +466,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'error.ibkrDisconnected': 'Plataforma Interactive Brokers Requerida',
     'error.ibkrDisconnectedDescription': 'Para el correcto funcionamiento de esta sección, asegúrese de que la plataforma Interactive Brokers (TWS o Gateway) esté en ejecución y con la API configurada correctamente.',
     'error.technicalDetails': 'Detalles Técnicos',
-    'error.downloadConnectorMac': 'Descargar Connector (macOS)',
-    'error.downloadConnectorWin': 'Descargar Connector (Windows)',
+    'error.downloadConnector': 'Descargar / Actualizar Connector',
 
     // Equity Curve
     'equityCurve.title': 'Curva de Equity',

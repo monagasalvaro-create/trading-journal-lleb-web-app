@@ -30,7 +30,7 @@ logger = logging.getLogger("TJConnector")
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 # Replace with actual deployed URL before packaging
-WEB_APP_URL = "http://localhost:5173"
+WEB_APP_URL = "https://trading-journal-lleb-web-app-production.up.railway.app"
 CONNECTOR_PORT = 8765
 
 
