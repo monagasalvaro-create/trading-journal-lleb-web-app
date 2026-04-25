@@ -64,6 +64,7 @@ export function StrikeCalculator({ className, isActive = true }: StrikeCalculato
                 price: null,
                 iv_annual: null,
                 iv_daily: null,
+                hv_source: null,
                 deviation: null,
                 strike_call: null,
                 strike_put: null,
@@ -257,6 +258,15 @@ export function StrikeCalculator({ className, isActive = true }: StrikeCalculato
                                     <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                                         Annual HV
                                     </span>
+                                    {result.hv_source === 'FALLBACK' && (
+                                        <span className="text-[9px] bg-amber-500/20 border border-amber-500/40 text-amber-400 font-mono px-1 py-0.5 rounded" title="Could not fetch live data — using estimated 25%">est.</span>
+                                    )}
+                                    {result.hv_source === 'PRICE' && (
+                                        <span className="text-[9px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono px-1 py-0.5 rounded" title="Annualized HV computed from 30-day price history">30d</span>
+                                    )}
+                                    {result.hv_source === 'IBKR' && (
+                                        <span className="text-[9px] bg-sky-500/15 border border-sky-500/30 text-sky-400 font-mono px-1 py-0.5 rounded" title="30-day Historical Volatility from IBKR">IBKR</span>
+                                    )}
                                 </div>
                                 <p className="text-xl font-bold">{formatPercent(result.iv_annual)}</p>
                             </CardContent>
@@ -265,7 +275,7 @@ export function StrikeCalculator({ className, isActive = true }: StrikeCalculato
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide" title="Daily HV = Annual HV ÷ √252">
                                         Daily HV
                                     </span>
                                 </div>

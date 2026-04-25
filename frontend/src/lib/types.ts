@@ -186,6 +186,7 @@ export interface StrikeCalculatorResult {
     price: number | null;
     iv_annual: number | null;
     iv_daily: number | null;
+    hv_source: 'PRICE' | 'IBKR' | 'FALLBACK' | null;
     deviation: number | null;
     strike_call: number | null;
     strike_put: number | null;

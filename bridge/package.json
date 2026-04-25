@@ -1,6 +1,6 @@
 {
   "name": "tj-bridge",
-  "version": "0.4.0",
+  "version": "0.4.2",
   "description": "Local bridge between Trading Journal web app and Interactive Brokers TWS/Gateway. Read-only, runs on 127.0.0.1:8765.",
   "main": "src/index.js",
   "bin": "src/index.js",

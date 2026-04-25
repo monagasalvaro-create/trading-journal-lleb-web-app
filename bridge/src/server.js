@@ -4,7 +4,7 @@ const express = require('express');
 const { corsMiddleware } = require('./cors');
 const ib = require('./ibClient');
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.2';
 const DEFAULT_TWS_PORT = 7497;
 
 function createServer() {

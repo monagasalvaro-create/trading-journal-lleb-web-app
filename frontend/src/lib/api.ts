@@ -338,11 +338,13 @@ export const strikeCalculatorApi = {
                 return {
                     success: false,
                     symbol: symbol.toUpperCase(),
-                    price: null, iv_annual: null, iv_daily: null, deviation: null, strike_call: null, strike_put: null,
+                    price: null, iv_annual: null, iv_daily: null, hv_source: null, deviation: null, strike_call: null, strike_put: null,
                     message: data.message || "Calculation failed"
                 };
             }
-            // Map the new micro-API format back to the expected legacy frontend format
+            // Map the bridge format to the frontend format.
+            // iv_annual: annualized HV as decimal (0.25 = 25%)
+            // iv_daily: daily HV = annual / sqrt(252)
             const iv_annual = data.implied_volatility ? data.implied_volatility / 100 : 0;
             return {
                 success: true,
@@ -350,6 +352,7 @@ export const strikeCalculatorApi = {
                 price: data.current_price,
                 iv_annual: iv_annual,
                 iv_daily: iv_annual / Math.sqrt(252),
+                hv_source: data.hv_source ?? null,
                 deviation: data.weekly_move,
                 strike_call: data.strikes?.["1sd_weekly_up"] || null,
                 strike_put: data.strikes?.["1sd_weekly_down"] || null,

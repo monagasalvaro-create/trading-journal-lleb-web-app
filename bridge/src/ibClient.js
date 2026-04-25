@@ -207,10 +207,42 @@ async function fetchOpenPositions() {
 
 // ─── Strike Calculator ─────────────────────────────────────────────────────
 
-/** Annualized HV from IBKR's HISTORICAL_VOLATILITY bars (decimal, e.g. 0.25 = 25%). */
-async function fetchHVFromIBKR(api, contract) {
+/** Format a Date as IBKR's endDateTime string (UTC). */
+function ibkrDateTime(date) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}${p(date.getUTCMonth() + 1)}${p(date.getUTCDate())} ${p(date.getUTCHours())}:${p(date.getUTCMinutes())}:${p(date.getUTCSeconds())} UTC`;
+}
+
+/**
+ * Annualized HV computed from 30-day closing prices (log-return std dev × √252).
+ * Uses TRADES data — no special subscription required.
+ * Returns decimal (e.g. 0.25 = 25% annual HV).
+ */
+async function fetchHVFromPrices(api, contract) {
+  const endDateTime = ibkrDateTime(new Date());
   const bars = await Promise.race([
-    api.getHistoricalData(contract, '', '30 D', '1 day', 'HISTORICAL_VOLATILITY', 1, 1),
+    api.getHistoricalData(contract, endDateTime, '30 D', '1 day', 'TRADES', 1, 1),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('price history timeout')), 10000)),
+  ]);
+  if (!Array.isArray(bars) || bars.length < 10) return null;
+  const closes = bars.map(b => b.close).filter(c => c > 0);
+  if (closes.length < 10) return null;
+  const logR = [];
+  for (let i = 1; i < closes.length; i++) logR.push(Math.log(closes[i] / closes[i - 1]));
+  if (logR.length < 2) return null;
+  const mean = logR.reduce((a, b) => a + b, 0) / logR.length;
+  const variance = logR.reduce((s, r) => s + (r - mean) ** 2, 0) / (logR.length - 1);
+  return Math.sqrt(variance) * Math.sqrt(252);
+}
+
+/**
+ * Annualized HV from IBKR's HISTORICAL_VOLATILITY bars (decimal, e.g. 0.25 = 25%).
+ * Requires a market data subscription for HV data.
+ */
+async function fetchHVFromIBKR(api, contract) {
+  const endDateTime = ibkrDateTime(new Date());
+  const bars = await Promise.race([
+    api.getHistoricalData(contract, endDateTime, '30 D', '1 day', 'HISTORICAL_VOLATILITY', 1, 1),
     new Promise((_, rej) => setTimeout(() => rej(new Error('hv timeout')), 8000)),
   ]);
   if (!Array.isArray(bars) || bars.length === 0) return null;
@@ -218,22 +250,6 @@ async function fetchHVFromIBKR(api, contract) {
   if (!(last > 0)) return null;
   // IBKR returns HV as decimal (0.25 = 25%). Normalize if returned as percentage (> 5.0).
   return last > 5.0 ? last / 100 : last;
-}
-
-/** Annualized HV calculated from 90-day closing prices (log-return std dev × √252). */
-async function fetchHVFromPrices(api, contract) {
-  const bars = await Promise.race([
-    api.getHistoricalData(contract, '', '90 D', '1 day', 'TRADES', 1, 1),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('price history timeout')), 10000)),
-  ]);
-  if (!Array.isArray(bars) || bars.length < 20) return null;
-  const closes = bars.map(b => b.close).filter(c => c > 0);
-  if (closes.length < 20) return null;
-  const logR = [];
-  for (let i = 1; i < closes.length; i++) logR.push(Math.log(closes[i] / closes[i - 1]));
-  const mean = logR.reduce((a, b) => a + b, 0) / logR.length;
-  const variance = logR.reduce((s, r) => s + (r - mean) ** 2, 0) / (logR.length - 1);
-  return Math.sqrt(variance) * Math.sqrt(252);
 }
 
 async function calculateStrikes(symbol) {
@@ -264,13 +280,16 @@ async function calculateStrikes(symbol) {
       return { success: false, symbol, message: 'Could not fetch market price from TWS' };
     }
 
-    // 2. Historical volatility: try IBKR's built-in HV, then compute from prices, then fallback
+    // 2. Historical volatility: compute from 30-day prices (no subscription needed),
+    //    then try IBKR's built-in HV bars, then fallback to 0.25.
     let hvAnnual = null;
-    try { hvAnnual = await fetchHVFromIBKR(api, contract); } catch { /* fall through */ }
+    let hvSource = 'FALLBACK';
+    try { hvAnnual = await fetchHVFromPrices(api, contract); if (hvAnnual) hvSource = 'PRICE'; } catch { /* fall through */ }
     if (!hvAnnual) {
-      try { hvAnnual = await fetchHVFromPrices(api, contract); } catch { /* fall through */ }
+      try { hvAnnual = await fetchHVFromIBKR(api, contract); if (hvAnnual) hvSource = 'IBKR'; } catch { /* fall through */ }
     }
     const ivUsed = hvAnnual || 0.25;
+    console.log(`[strikes] ${symbol} price=$${price} hv=${(ivUsed * 100).toFixed(2)}% source=${hvSource}`);
 
     const weeklyMove = price * ivUsed * Math.sqrt(7 / 365);
     const monthlyMove = price * ivUsed * Math.sqrt(30 / 365);
@@ -280,7 +299,8 @@ async function calculateStrikes(symbol) {
       success: true,
       symbol,
       current_price: round2(price),
-      implied_volatility: round2(ivUsed * 100), // percentage (e.g. 25.3 for 25.3% HV)
+      implied_volatility: round2(ivUsed * 100), // annualized HV as percentage (e.g. 25.3 for 25.3%)
+      hv_source: hvSource, // 'PRICE' | 'IBKR' | 'FALLBACK'
       weekly_move: round2(weeklyMove),
       monthly_move: round2(monthlyMove),
       strikes: {
