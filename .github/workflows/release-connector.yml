@@ -5,6 +5,9 @@ on:
     tags:
       - 'connector-v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     name: Build & Release (${{ matrix.platform }})
@@ -53,9 +56,9 @@ jobs:
         working-directory: ./bridge/build
         run: |
           ls -la
-          chmod +x tj-bridge-macos-x64 tj-bridge-macos-arm64 || true
+          chmod +x tj-bridge-x64 tj-bridge-arm64 || true
           # xattr clears any quarantine flags on the unsigned binaries so users can run them after `xattr -cr`.
-          zip -j ../../${{ matrix.asset_name }} tj-bridge-macos-x64 tj-bridge-macos-arm64
+          zip -j ../../${{ matrix.asset_name }} tj-bridge-x64 tj-bridge-arm64
 
       - name: Package Windows binary
         if: runner.os == 'Windows'

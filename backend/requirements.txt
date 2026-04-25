@@ -14,3 +14,6 @@ email-validator>=2.0
 bcrypt==4.0.1
 ib_insync==0.9.86
 cryptography==46.0.5
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.25.3
