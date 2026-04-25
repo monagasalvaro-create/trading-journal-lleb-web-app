@@ -51,5 +51,36 @@ Se detectó que `uvloop` (el motor por defecto de Uvicorn) presentaba problemas 
 
 ---
 
+## 4. Migración del Connector: Python (FastAPI + ib_insync) → Node.js (@stoqey/ib)
+
+**Fecha**: 2026-04-25 (en progreso, ver `bridge/` y plan en `C:\Users\monag\.claude\plans\clever-sniffing-gray.md`).
+
+### Razones del cambio
+
+1. **`ib_insync` descontinuado**: Interactive Brokers anunció en febrero 2026 que `ib_insync` ya no recibe soporte. Su recomendación oficial son los clientes mantenidos en Java/C#/Node, lo que dejó al connector Python en un camino sin salida.
+2. **Distribución frágil con PyInstaller**: el binario empaquetado fallaba en macOS por interacciones entre Gatekeeper y módulos C (`asyncio`, `pywin32` shims). El usuario reportó que el connector Python no arrancaba en macOS — sin error visible.
+3. **Tamaño y complejidad**: PyInstaller incluye todo el runtime Python + ib_insync + dependencias C → ~80 MB. Un binario Node empaquetado con `pkg` queda en ~40 MB y arranca instantáneo.
+
+### Decisión
+
+Reescribir el connector como `bridge/` en Node.js 18 + `@stoqey/ib` (port del Java client v10.32.01, oct 2024, activamente mantenido). **Mismo contrato HTTP REST en `127.0.0.1:8765`**, drop-in replacement: el frontend (`frontend/src/lib/connector.ts`) no se toca.
+
+### Tradeoff: Safari y mixed content
+
+El estudio de viabilidad mostró que Safari (macOS + iOS) bloquea silenciosamente las peticiones HTTP/WebSocket desde HTTPS hacia `localhost`, incluso aunque otros navegadores las permitan ([WebKit Bug 171934](https://bugs.webkit.org/show_bug.cgi?id=171934), abierto desde 2017). La solución correcta requiere TLS con cert válido (truco Plex: dominio dedicado + Let's Encrypt + cert distribuido en el binario), lo cual añade complejidad de DNS, dominio y rotación cada 90 días.
+
+**Decisión**: postergar TLS. Soportar Chrome/Firefox/Edge/Brave/Opera/Vivaldi (~70-80% de usuarios desktop). Mostrar banner explicativo en Safari (`IBKRConnectionError.tsx`) recomendando otro navegador. Migrar a TLS si la demanda lo justifica.
+
+### Diferencias técnicas con el Python anterior
+
+- `getAccountUpdates()` de `IBApiNext` requiere esperar la primera carga real de datos (no la primera emisión vacía del Observable). El helper `waitForAccountSnapshot` en `bridge/src/ibClient.js` lo maneja con un poll de 200ms hasta que `value` o `portfolio` tenga entradas.
+- `getMarketDataSnapshot` no acepta generic ticks (TWS lo rechaza con `"Snapshot market data subscription is not applicable to generic ticks"`). Para implied volatility se necesita streaming `getMarketData`. El connector Python tampoco lograba IV real para STK contracts (solo OPT lo expone), por lo que ambos caen al fallback `iv = 0.25`. Los strikes calculados son matemáticamente equivalentes.
+
+### Pasos pendientes
+
+Ver `C:\Users\monag\.claude\plans\clever-sniffing-gray.md` (resumen del progreso). Pasos 7-11: empaquetar con `pkg`, reescribir CI `release-connector.yml`, tagear `connector-v0.4.0`, validar contra Railway producción, borrar `tj-connector/`.
+
+---
+
 > [!IMPORTANT]
-> **Recomendación para Desarrollos Futuros**: No subir la versión de Python por encima de la 3.12 hasta que `ib_insync` y `uvloop` publiquen compatibilidad oficial. Para builds en macOS, usar siempre el flujo documentado en `sign-and-export-macos.md`.
+> **Recomendación para Desarrollos Futuros**: El connector Python fue reemplazado por `bridge/` en Node.js. Para builds en macOS del bridge, validar que `pkg` empaqueta `@stoqey/ib` correctamente; si falla, considerar Node SEA o `bun build --compile`. La promesa read-only (`docs/privacy_disclosure.md.resolved`) sigue vigente — auditar `bridge/src/` con grep `placeOrder|cancelOrder|modifyOrder` antes de cada release.

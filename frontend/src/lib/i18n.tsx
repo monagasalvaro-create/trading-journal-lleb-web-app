@@ -170,6 +170,8 @@ const translations: Record<Lang, Record<string, string>> = {
     'error.ibkrDisconnectedDescription': 'To ensure this section functions correctly, please verify that Interactive Brokers (TWS or Gateway) is running with the API properly configured.',
     'error.technicalDetails': 'Technical Details',
     'error.downloadConnector': 'Download / Update Connector',
+    'error.safariNotSupported': 'Safari is not supported',
+    'error.safariNotSupportedDescription': 'The TWS integration cannot run in Safari due to a browser security restriction. Please open this app in Chrome, Firefox, or Edge to connect your Interactive Brokers account.',
 
     // Equity Curve
     'equityCurve.title': 'Equity Curve',
@@ -467,6 +469,8 @@ const translations: Record<Lang, Record<string, string>> = {
     'error.ibkrDisconnectedDescription': 'Para el correcto funcionamiento de esta sección, asegúrese de que la plataforma Interactive Brokers (TWS o Gateway) esté en ejecución y con la API configurada correctamente.',
     'error.technicalDetails': 'Detalles Técnicos',
     'error.downloadConnector': 'Descargar / Actualizar Connector',
+    'error.safariNotSupported': 'Safari no es compatible',
+    'error.safariNotSupportedDescription': 'La integración con TWS no puede ejecutarse en Safari debido a una restricción de seguridad del navegador. Abre esta aplicación en Chrome, Firefox o Edge para conectar tu cuenta de Interactive Brokers.',
 
     // Equity Curve
     'equityCurve.title': 'Curva de Equity',

@@ -1,4 +1,4 @@
-name: Release TJ Connector
+name: Release TJ Bridge (Connector)
 
 on:
   push:
@@ -7,63 +7,68 @@ on:
 
 jobs:
   build-and-release:
-    name: Build & Release
+    name: Build & Release (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
             platform: mac
             asset_name: TJ_Connector_macOS.zip
-            binary_name: "TJ Connector.app"
+            pkg_targets: node18-macos-x64,node18-macos-arm64
           - os: windows-latest
             platform: win
             asset_name: TJ_Connector_Windows.zip
-            binary_name: "TJ Connector.exe"
+            pkg_targets: node18-win-x64
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
+          node-version: '20'
 
       - name: Install dependencies
-        working-directory: ./tj-connector
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+        working-directory: ./bridge
+        run: npm ci
 
-      - name: Build with PyInstaller (Windows)
-        if: runner.os == 'Windows'
-        working-directory: ./tj-connector
+      - name: Read-only audit (no placeOrder/cancelOrder/modifyOrder in code)
+        working-directory: ./bridge
+        shell: bash
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "TJ Connector" main.py
+          if grep -RInE "(^|[^a-zA-Z_])(placeOrder|cancelOrder|modifyOrder|placeOrderAsync)\s*\(" src/; then
+            echo "ERROR: write API call detected in bridge/src/. The bridge must remain read-only."
+            exit 1
+          fi
+          echo "Read-only audit passed."
 
-      - name: Build with PyInstaller (macOS)
+      - name: Build bridge binary (${{ matrix.platform }})
+        working-directory: ./bridge
+        run: npx pkg . --targets ${{ matrix.pkg_targets }} --out-path build
+
+      - name: Package macOS binaries
         if: runner.os == 'macOS'
-        working-directory: ./tj-connector
+        working-directory: ./bridge/build
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "TJ Connector" main.py
+          ls -la
+          chmod +x tj-bridge-macos-x64 tj-bridge-macos-arm64 || true
+          # xattr clears any quarantine flags on the unsigned binaries so users can run them after `xattr -cr`.
+          zip -j ../../${{ matrix.asset_name }} tj-bridge-macos-x64 tj-bridge-macos-arm64
 
-      - name: Zip build (Windows)
+      - name: Package Windows binary
         if: runner.os == 'Windows'
-        working-directory: ./tj-connector/dist
+        working-directory: ./bridge/build
+        shell: pwsh
         run: |
-          Compress-Archive -Path "TJ Connector" -DestinationPath ../${{ matrix.asset_name }}
+          Get-ChildItem
+          Compress-Archive -Path tj-bridge.exe -DestinationPath ../../${{ matrix.asset_name }}
 
-      - name: Zip build (macOS)
-        if: runner.os == 'macOS'
-        working-directory: ./tj-connector/dist
-        run: |
-          ditto -c -k --keepParent "TJ Connector.app" ../${{ matrix.asset_name }}
-
-      - name: Release Note & Asset Upload
-        uses: softprops/action-gh-release@v1
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          files: tj-connector/${{ matrix.asset_name }}
+          files: ${{ matrix.asset_name }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

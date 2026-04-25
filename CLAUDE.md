@@ -14,9 +14,12 @@ SaaS comercial para traders de Interactive Brokers. Seguridad, aislamiento multi
 ## Arquitectura de dos productos
 
 1. **Web app** (servidor): `backend/` + `frontend/` estático via FastAPI. Guarda trades, métricas, equity. **Nunca** habla con TWS.
-2. **TJ Connector** (`tj-connector/`): binario PyInstaller en máquina del usuario. Micro-API en `http://127.0.0.1:8765` (solo localhost). Datos live **jamás** tocan el servidor.
+2. **TJ Bridge** (`bridge/`): binario `pkg` Node.js en máquina del usuario. Micro-API en `http://127.0.0.1:8765` (solo localhost). Datos live **jamás** tocan el servidor. **Reemplaza al `tj-connector/` Python** que está en proceso de retiro (ver `docs/TECHNICAL_LOG.md` sección 4).
 
-Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Connector. Ausente → UI de descarga.
+Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → bridge corriendo. Ausente → UI de descarga.
+
+> [!NOTE]
+> **Migración Python → Node.js en curso (2026-04).** El bridge Node está implementado y validado contra TWS local (ver `bridge/`). Pendiente: build con `pkg`, reescribir `.github/workflows/release-connector.yml` y publicar `connector-v0.4.0`. Plan completo y estado en `C:\Users\monag\.claude\plans\clever-sniffing-gray.md`. **No borrar `tj-connector/` todavía** — sigue siendo el binario distribuido hasta que se publique v0.4.0.
 
 ## Estado del proyecto
 
@@ -26,6 +29,7 @@ Detección: `GET http://localhost:8765/status` timeout 800ms. Presente → Conne
 | Fase 2 — PostgreSQL único | ✅ Completada | SQLite eliminado; docker-compose con Postgres 16 |
 | Fase 3 — Deploy Railway | ✅ Completada | Dockerfile multi-stage, railway.json, GitHub Actions CI |
 | Fase 4 — Distribución TJ Connector | ✅ Completada | Descarga del Connector desde la web app y CI via GitHub Actions |
+| Fase 4.1 — Migración Connector Python → Bridge Node.js | 🚧 En progreso | `bridge/` implementado y validado local. Pendiente `pkg` build + CI + release v0.4.0. Ver plan en `~/.claude/plans/clever-sniffing-gray.md` |
 
 Ver `docs/plan.md` para el roadmap detallado.
 
