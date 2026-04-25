@@ -172,9 +172,12 @@ function SortableItem({ asset, onDelete, isOutOfPlan, onOutOfPlanClick, onMissin
     const isPlanned = !isFromSync;
     const shouldFetchStrikes = isOptionsBoard && isPlanned && ['calls', 'puts', 'underlying'].includes(asset.column_id);
 
+    // Extract underlying ticker from full OCC option symbol (e.g. "AAPL 230115C00150000" → "AAPL")
+    const underlyingTicker = asset.symbol.match(/^([A-Z]+)/)?.[1] || asset.symbol;
+
     const { data: strikeData, isLoading: isLoadingStrikes } = useQuery({
-        queryKey: ['strike', asset.symbol],
-        queryFn: () => strikeCalculatorApi.calculate(asset.symbol),
+        queryKey: ['strike', underlyingTicker],
+        queryFn: () => strikeCalculatorApi.calculate(underlyingTicker),
         enabled: shouldFetchStrikes,
         staleTime: 60000,
         refetchInterval: 60000,

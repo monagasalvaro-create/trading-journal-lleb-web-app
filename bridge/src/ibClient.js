@@ -206,6 +206,36 @@ async function fetchOpenPositions() {
 }
 
 // ─── Strike Calculator ─────────────────────────────────────────────────────
+
+/** Annualized HV from IBKR's HISTORICAL_VOLATILITY bars (decimal, e.g. 0.25 = 25%). */
+async function fetchHVFromIBKR(api, contract) {
+  const bars = await Promise.race([
+    api.getHistoricalData(contract, '', '30 D', '1 day', 'HISTORICAL_VOLATILITY', 1, 1),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('hv timeout')), 8000)),
+  ]);
+  if (!Array.isArray(bars) || bars.length === 0) return null;
+  const last = bars[bars.length - 1]?.close;
+  if (!(last > 0)) return null;
+  // IBKR returns HV as decimal (0.25 = 25%). Normalize if returned as percentage (> 5.0).
+  return last > 5.0 ? last / 100 : last;
+}
+
+/** Annualized HV calculated from 90-day closing prices (log-return std dev × √252). */
+async function fetchHVFromPrices(api, contract) {
+  const bars = await Promise.race([
+    api.getHistoricalData(contract, '', '90 D', '1 day', 'TRADES', 1, 1),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('price history timeout')), 10000)),
+  ]);
+  if (!Array.isArray(bars) || bars.length < 20) return null;
+  const closes = bars.map(b => b.close).filter(c => c > 0);
+  if (closes.length < 20) return null;
+  const logR = [];
+  for (let i = 1; i < closes.length; i++) logR.push(Math.log(closes[i] / closes[i - 1]));
+  const mean = logR.reduce((a, b) => a + b, 0) / logR.length;
+  const variance = logR.reduce((s, r) => s + (r - mean) ** 2, 0) / (logR.length - 1);
+  return Math.sqrt(variance) * Math.sqrt(252);
+}
+
 async function calculateStrikes(symbol) {
   const conn = await connectAny(300);
   if (!conn) return { success: false, symbol, message: buildConnectError().message };
@@ -219,11 +249,8 @@ async function calculateStrikes(symbol) {
       currency: 'USD',
     };
 
-    // Snapshots cannot include generic ticks; pass an empty list. This matches
-    // the Python behavior, which also falls back to 0.25 IV for STK contracts
-    // (implied volatility ticks are typically only available for OPT).
+    // 1. Current price from market data snapshot
     const snapshot = await api.getMarketDataSnapshot(contract, '', false);
-
     let price = null;
     if (snapshot && typeof snapshot.entries === 'function') {
       for (const [field, tickValue] of snapshot.entries()) {
@@ -233,12 +260,18 @@ async function calculateStrikes(symbol) {
         if ((field === 4 || field === 9 || field === 37) && price == null) price = v;
       }
     }
-
     if (price == null) {
       return { success: false, symbol, message: 'Could not fetch market price from TWS' };
     }
 
-    const ivUsed = 0.25;
+    // 2. Historical volatility: try IBKR's built-in HV, then compute from prices, then fallback
+    let hvAnnual = null;
+    try { hvAnnual = await fetchHVFromIBKR(api, contract); } catch { /* fall through */ }
+    if (!hvAnnual) {
+      try { hvAnnual = await fetchHVFromPrices(api, contract); } catch { /* fall through */ }
+    }
+    const ivUsed = hvAnnual || 0.25;
+
     const weeklyMove = price * ivUsed * Math.sqrt(7 / 365);
     const monthlyMove = price * ivUsed * Math.sqrt(30 / 365);
     const round2 = (n) => Math.round(n * 100) / 100;
@@ -247,7 +280,7 @@ async function calculateStrikes(symbol) {
       success: true,
       symbol,
       current_price: round2(price),
-      implied_volatility: round2(ivUsed * 100),
+      implied_volatility: round2(ivUsed * 100), // percentage (e.g. 25.3 for 25.3% HV)
       weekly_move: round2(weeklyMove),
       monthly_move: round2(monthlyMove),
       strikes: {
