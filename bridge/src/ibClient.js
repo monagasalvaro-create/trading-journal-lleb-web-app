@@ -236,8 +236,9 @@ async function fetchHVFromPrices(api, contract) {
 }
 
 /**
- * Annualized HV from IBKR's HISTORICAL_VOLATILITY bars (decimal, e.g. 0.25 = 25%).
- * Requires a market data subscription for HV data.
+ * Daily HV from IBKR's HISTORICAL_VOLATILITY bars (1-day resolution).
+ * IBKR reports the per-day standard deviation — already in daily terms.
+ * Returns decimal (e.g. 0.0129 = 1.29% daily). Requires market data subscription.
  */
 async function fetchHVFromIBKR(api, contract) {
   const endDateTime = ibkrDateTime(new Date());
@@ -248,7 +249,8 @@ async function fetchHVFromIBKR(api, contract) {
   if (!Array.isArray(bars) || bars.length === 0) return null;
   const last = bars[bars.length - 1]?.close;
   if (!(last > 0)) return null;
-  // IBKR returns HV as decimal (0.25 = 25%). Normalize if returned as percentage (> 5.0).
+  // Normalize: IBKR may return as percentage (e.g. 1.29) or decimal (e.g. 0.0129).
+  // Values > 5 are treated as percentage and divided by 100; values ≤ 5 kept as decimal.
   return last > 5.0 ? last / 100 : last;
 }
 
@@ -280,29 +282,54 @@ async function calculateStrikes(symbol) {
       return { success: false, symbol, message: 'Could not fetch market price from TWS' };
     }
 
-    // 2. Historical volatility: compute from 30-day prices (no subscription needed),
-    //    then try IBKR's built-in HV bars, then fallback to 0.25.
-    let hvAnnual = null;
+    // 2. Daily HV — prefer IBKR's own daily HV value; fall back to price-computed annual÷√252.
+    //
+    //    IBKR's HISTORICAL_VOLATILITY bars (1-day) return daily HV as a decimal or small %.
+    //    fetchHVFromIBKR normalises to decimal → use directly (no ÷√252 needed).
+    //
+    //    fetchHVFromPrices returns ANNUAL HV (log-return std dev × √252) → must ÷√252 for daily.
+    let ivDailyDecimal = null;
     let hvSource = 'FALLBACK';
-    try { hvAnnual = await fetchHVFromPrices(api, contract); if (hvAnnual) hvSource = 'PRICE'; } catch { /* fall through */ }
-    if (!hvAnnual) {
-      try { hvAnnual = await fetchHVFromIBKR(api, contract); if (hvAnnual) hvSource = 'IBKR'; } catch { /* fall through */ }
-    }
-    const ivUsed = hvAnnual || 0.25;
-    console.log(`[strikes] ${symbol} price=$${price} hv=${(ivUsed * 100).toFixed(2)}% source=${hvSource}`);
 
-    // deviation = price × (HV_daily × 2), where HV_daily = HV_annual / √252
-    const ivDaily = ivUsed / Math.sqrt(252);
-    const deviation = price * ivDaily * 2;
+    // Primary: IBKR daily HV (requires market data subscription; comes already in daily terms)
+    try {
+      const ibkrHV = await fetchHVFromIBKR(api, contract);
+      if (ibkrHV != null && ibkrHV > 0) {
+        ivDailyDecimal = ibkrHV;
+        hvSource = 'IBKR';
+      }
+    } catch { /* fall through */ }
+
+    // Fallback: compute annual HV from 30-day price history, convert to daily
+    if (!ivDailyDecimal) {
+      try {
+        const annualHV = await fetchHVFromPrices(api, contract);
+        if (annualHV) {
+          ivDailyDecimal = annualHV / Math.sqrt(252);
+          hvSource = 'PRICE';
+        }
+      } catch { /* fall through */ }
+    }
+
+    // Ultimate fallback: assume 25% annual → daily
+    if (!ivDailyDecimal) {
+      ivDailyDecimal = 0.25 / Math.sqrt(252);
+      hvSource = 'FALLBACK';
+    }
+
+    console.log(`[strikes] ${symbol} price=$${price} iv_daily=${(ivDailyDecimal * 100).toFixed(4)}% source=${hvSource}`);
+
+    // deviation = price × (iv_daily × 2)
+    const deviation = price * ivDailyDecimal * 2;
     const round2 = (n) => Math.round(n * 100) / 100;
 
     return {
       success: true,
       symbol,
       current_price: round2(price),
-      iv_annual: round2(ivUsed * 100),  // annualized HV as percentage (e.g. 20.47)
-      iv_daily: round2(ivDaily * 100),  // daily HV as percentage (e.g. 1.29)
-      hv_source: hvSource,              // 'PRICE' | 'IBKR' | 'FALLBACK'
+      iv_daily: round2(ivDailyDecimal * 100),                    // daily HV as percentage (e.g. 1.29)
+      iv_annual: round2(ivDailyDecimal * Math.sqrt(252) * 100),  // annualized for reference (e.g. 20.47)
+      hv_source: hvSource,
       deviation: round2(deviation),
       strike_call: round2(price + deviation),
       strike_put: round2(price - deviation),
