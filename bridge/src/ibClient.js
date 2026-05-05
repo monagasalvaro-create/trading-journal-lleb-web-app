@@ -291,24 +291,21 @@ async function calculateStrikes(symbol) {
     const ivUsed = hvAnnual || 0.25;
     console.log(`[strikes] ${symbol} price=$${price} hv=${(ivUsed * 100).toFixed(2)}% source=${hvSource}`);
 
-    const weeklyMove = price * ivUsed * Math.sqrt(7 / 365);
-    const monthlyMove = price * ivUsed * Math.sqrt(30 / 365);
+    // deviation = price × (HV_daily × 2), where HV_daily = HV_annual / √252
+    const ivDaily = ivUsed / Math.sqrt(252);
+    const deviation = price * ivDaily * 2;
     const round2 = (n) => Math.round(n * 100) / 100;
 
     return {
       success: true,
       symbol,
       current_price: round2(price),
-      implied_volatility: round2(ivUsed * 100), // annualized HV as percentage (e.g. 25.3 for 25.3%)
-      hv_source: hvSource, // 'PRICE' | 'IBKR' | 'FALLBACK'
-      weekly_move: round2(weeklyMove),
-      monthly_move: round2(monthlyMove),
-      strikes: {
-        '1sd_weekly_up': round2(price + weeklyMove),
-        '1sd_weekly_down': round2(price - weeklyMove),
-        '1sd_monthly_up': round2(price + monthlyMove),
-        '1sd_monthly_down': round2(price - monthlyMove),
-      },
+      iv_annual: round2(ivUsed * 100),  // annualized HV as percentage (e.g. 20.47)
+      iv_daily: round2(ivDaily * 100),  // daily HV as percentage (e.g. 1.29)
+      hv_source: hvSource,              // 'PRICE' | 'IBKR' | 'FALLBACK'
+      deviation: round2(deviation),
+      strike_call: round2(price + deviation),
+      strike_put: round2(price - deviation),
     };
   } catch (err) {
     return { success: false, symbol, message: `Cannot connect to TWS or calculate strikes: ${err?.message || err}` };

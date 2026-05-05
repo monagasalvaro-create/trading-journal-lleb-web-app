@@ -81,20 +81,17 @@ export const connectorApi = {
     }> =>
         fetch(`${CONNECTOR_URL}/positions`).then((r) => r.json()),
 
-    /** Strike calculator: current price + IV + 1-SD strike levels. */
+    /** Strike calculator: current price + HV + 2×daily-HV strike levels. */
     getStrikes: (symbol: string): Promise<{
         success: boolean;
         symbol: string;
         current_price?: number;
-        implied_volatility?: number;
-        weekly_move?: number;
-        monthly_move?: number;
-        strikes?: {
-            '1sd_weekly_up': number;
-            '1sd_weekly_down': number;
-            '1sd_monthly_up': number;
-            '1sd_monthly_down': number;
-        };
+        iv_annual?: number;   // annualized HV as percentage (e.g. 20.47)
+        iv_daily?: number;    // daily HV as percentage (e.g. 1.29)
+        hv_source?: 'PRICE' | 'IBKR' | 'FALLBACK';
+        deviation?: number;   // dollar deviation (price × daily_hv × 2)
+        strike_call?: number;
+        strike_put?: number;
         message?: string;
     }> =>
         fetch(`${CONNECTOR_URL}/strikes/${symbol}`).then((r) => r.json()),

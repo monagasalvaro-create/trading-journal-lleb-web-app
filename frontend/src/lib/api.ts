@@ -342,20 +342,20 @@ export const strikeCalculatorApi = {
                     message: data.message || "Calculation failed"
                 };
             }
-            // Map the bridge format to the frontend format.
-            // iv_annual: annualized HV as decimal (0.25 = 25%)
-            // iv_daily: daily HV = annual / sqrt(252)
-            const iv_annual = data.implied_volatility ? data.implied_volatility / 100 : 0;
+            // Bridge returns iv_annual / iv_daily as percentages (e.g. 20.47, 1.29).
+            // Frontend StrikeCalculatorResult expects decimals (e.g. 0.2047, 0.0129).
+            const iv_annual = data.iv_annual != null ? data.iv_annual / 100 : null;
+            const iv_daily = data.iv_daily != null ? data.iv_daily / 100 : null;
             return {
                 success: true,
                 symbol: data.symbol,
                 price: data.current_price,
-                iv_annual: iv_annual,
-                iv_daily: iv_annual / Math.sqrt(252),
+                iv_annual,
+                iv_daily,
                 hv_source: data.hv_source ?? null,
-                deviation: data.weekly_move,
-                strike_call: data.strikes?.["1sd_weekly_up"] || null,
-                strike_put: data.strikes?.["1sd_weekly_down"] || null,
+                deviation: data.deviation ?? null,
+                strike_call: data.strike_call ?? null,
+                strike_put: data.strike_put ?? null,
                 message: null
             };
         } catch (e: any) {
